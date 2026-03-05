@@ -1,0 +1,170 @@
+/* Chat Interface Styles */
+
+/* Smooth scrollbar for conversation list */
+#conversationList::-webkit-scrollbar {
+    width: 6px;
+}
+
+#conversationList::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#conversationList::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+}
+
+#conversationList::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+/* Smooth scrollbar for messages */
+#messages::-webkit-scrollbar {
+    width: 6px;
+}
+
+#messages::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+#messages::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+}
+
+#messages::-webkit-scrollbar-thumb:hover {
+    background: #a0aec0;
+}
+
+/* Conversation item hover effect */
+.conv-item {
+    position: relative;
+    transition: all 0.2s ease;
+}
+
+.conv-item:hover {
+    transform: translateX(2px);
+}
+
+/* Active conversation highlight */
+.conv-item.bg-blue-50 {
+    border-left: 3px solid #3b82f6;
+}
+
+/* Message bubble animations */
+#messages > div {
+    animation: fadeInUp 0.3s ease;
+}
+
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Typing indicator animation */
+.typing-indicator {
+    display: inline-flex;
+    gap: 4px;
+}
+
+.typing-indicator span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #94a3b8;
+    animation: typing 1.4s infinite;
+}
+
+.typing-indicator span:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.typing-indicator span:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        transform: translateY(0);
+    }
+    30% {
+        transform: translateY(-10px);
+    }
+}
+
+
+/* Message input focus effect */
+#messageInput:focus {
+    background: white;
+}
+
+.dark #messageInput:focus {
+    background: #374151;
+}
+
+/* Unread badge animation */
+[id^="unread-"] {
+    animation: bounceIn 0.3s ease;
+}
+
+@keyframes bounceIn {
+    0% {
+        transform: scale(0);
+    }
+    50% {
+        transform: scale(1.2);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+/* Smooth transitions for dark mode */
+* {
+    transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease;
+}
+
+/* New Chat Modal Styles */
+#newChatModal .friend-item:hover {
+    transform: translateX(4px);
+}
+
+#newChatModal .friend-item {
+    transition: all 0.2s ease;
+}
+
+/* Modal backdrop animation */
+.fixed.inset-0 {
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* Modal content animation */
+.fixed.inset-0 > div {
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}

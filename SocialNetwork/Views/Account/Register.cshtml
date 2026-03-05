@@ -1,0 +1,302 @@
+﻿@* Using the existing _Layout.cshtml *@
+@{
+    ViewData["Title"] = "Đăng ký";
+    Layout = "~/Views/Shared/Temp.cshtml";
+}
+    <div class="w-full max-w-md mx-auto" style="padding:20px 0px;">
+        <div class="glass-effect rounded-3xl p-8 bg-white shadow-sm card-hover">
+            <h3 class="text-2xl font-bold text-gray-900 mb-6 text-center">Đăng ký</h3>
+            @if (ViewBag.Error != null)
+            {
+                <div class="mb-6 text-red-600 text-center font-medium">@ViewBag.Error</div>
+            }
+            <form asp-controller="Account" asp-action="Register" method="post" class="space-y-6" id="registerForm">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" for="username">Tên người dùng</label>
+                    <input type="text" name="username" id="username" 
+                           pattern="^[a-zA-Z0-9_]{3,20}$"
+                           title="Tên người dùng phải từ 3-20 ký tự, chỉ chứa chữ cái, số và dấu gạch dưới"
+                           class="w-full px-4 py-3 bg-gray-100 text-gray-900 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow" 
+                           placeholder="Nhập tên người dùng (3-20 ký tự)" required>
+                    <span class="text-xs text-red-500 hidden" id="username-error">Tên người dùng không hợp lệ</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" for="fullName">Họ và tên</label>
+                    <input type="text" name="fullName" id="fullName" 
+                           pattern="^[a-zA-ZÀ-ỹ\s]{2,50}$"
+                           title="Họ tên phải từ 2-50 ký tự, chỉ chứa chữ cái và khoảng trắng"
+                           class="w-full px-4 py-3 bg-gray-100 text-gray-900 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow" 
+                           placeholder="Nhập họ và tên đầy đủ" required>
+                    <span class="text-xs text-red-500 hidden" id="fullName-error">Họ tên không hợp lệ</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" for="phoneNumber">Số điện thoại</label>
+                    <input type="tel" name="phoneNumber" id="phoneNumber" 
+                           pattern="^(0|\+84)[0-9]{9,10}$"
+                           title="Số điện thoại phải bắt đầu bằng 0 hoặc +84 và có 10-11 số"
+                           class="w-full px-4 py-3 bg-gray-100 text-gray-900 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow" 
+                           placeholder="Ví dụ: 0912345678" required>
+                    <span class="text-xs text-red-500 hidden" id="phoneNumber-error">Số điện thoại không hợp lệ</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" for="dateOfBirth">Ngày sinh</label>
+                    <input type="date" name="dateOfBirth" id="dateOfBirth"
+                           max="2010-12-31"
+                           class="w-full px-4 py-3 bg-gray-100 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow"
+                           required>
+                    <span class="text-xs text-red-500 hidden" id="dateOfBirth-error">Bạn phải từ 13 tuổi trở lên</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" for="email">Email</label>
+                    <input type="email" name="email" id="email" 
+                           pattern="^[a-zA-Z0-9._%+&#45;]+&#64;[a-zA-Z0-9.&#45;]+\.[a-zA-Z]{2,}&#36;"
+                           title="Email phải có định dạng hợp lệ (ví dụ: user@example.com)"
+                           class="w-full px-4 py-3 bg-gray-100 text-gray-900 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow" 
+                           placeholder="example&#64;email.com" required>
+                    <span class="text-xs text-red-500 hidden" id="email-error">Email không hợp lệ</span>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" for="password">Mật khẩu</label>
+                    <div class="relative">
+                        <input type="password" name="password" id="registerPassword" 
+                               pattern="^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d&#64;&#36;!%*?&amp;]{8,}&#36;"
+                               title="Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường và số"
+                               class="w-full px-4 py-3 bg-gray-100 text-gray-900 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow" 
+                               placeholder="Tạo mật khẩu mạnh" required>
+                        <button type="button" onclick="togglePassword('registerPassword')" class="absolute right-3 top-3.5 text-gray-500 hover:text-gray-700 transition-colors"><i class="fa-solid fa-eye"></i></button>
+                    </div>
+                    <div class="mt-2 space-y-1">
+                        <div class="flex items-center text-xs" id="length-check">
+                            <i class="fa-solid fa-circle text-gray-400 mr-2 text-[6px]"></i>
+                            <span class="text-gray-600">Ít nhất 8 ký tự</span>
+                        </div>
+                        <div class="flex items-center text-xs" id="uppercase-check">
+                            <i class="fa-solid fa-circle text-gray-400 mr-2 text-[6px]"></i>
+                            <span class="text-gray-600">Có chữ hoa (A-Z)</span>
+                        </div>
+                        <div class="flex items-center text-xs" id="lowercase-check">
+                            <i class="fa-solid fa-circle text-gray-400 mr-2 text-[6px]"></i>
+                            <span class="text-gray-600">Có chữ thường (a-z)</span>
+                        </div>
+                        <div class="flex items-center text-xs" id="number-check">
+                            <i class="fa-solid fa-circle text-gray-400 mr-2 text-[6px]"></i>
+                            <span class="text-gray-600">Có số (0-9)</span>
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2" for="confirmPassword">Xác nhận mật khẩu</label>
+                    <div class="relative">
+                        <input type="password" name="confirmPassword" id="confirmPassword" 
+                               class="w-full px-4 py-3 bg-gray-100 text-gray-900 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow" 
+                               placeholder="Nhập lại mật khẩu" required>
+                        <button type="button" onclick="togglePassword('confirmPassword')" class="absolute right-3 top-3.5 text-gray-500 hover:text-gray-700 transition-colors"><i class="fa-solid fa-eye"></i></button>
+                    </div>
+                    <span class="text-xs text-red-500 hidden" id="confirmPassword-error">Mật khẩu không khớp</span>
+                </div>
+                <div>
+                    <label class="flex items-start">
+                        <input type="checkbox" class="w-4 h-4 text-purple-600 bg-transparent border-gray-300 rounded focus:ring-purple-500 mt-1" required>
+                        <span class="ml-2 text-sm text-gray-600">
+                            Tôi đồng ý với <a href="#" class="text-purple-600 hover:text-purple-500">Điều khoản dịch vụ</a> và <a href="#" class="text-purple-600 hover:text-purple-500">Chính sách bảo mật</a>
+                        </span>
+                    </label>
+                </div>
+                <button type="submit" class="w-full gradient-bg text-white py-3 px-6 rounded-xl font-semibold btn-hover">Tạo tài khoản</button>
+            </form>
+            <div class="mt-6 text-center">
+                <p class="text-sm text-gray-600">
+                    Đã có tài khoản? <a href="@Url.Action("Login", "Account")" class="text-purple-600 hover:text-purple-500 transition-colors">Đăng nhập</a>
+                </p>
+            </div>
+        </div>
+    </div>
+
+@section Scripts {
+    <script>
+        function togglePassword(inputId) {
+            const input = document.getElementById(inputId);
+            const button = input.nextElementSibling;
+            if (input.type === 'password') {
+                input.type = 'text';
+                button.innerHTML = '<i class="fa-solid fa-eye-slash"></i>';
+            } else {
+                input.type = 'password';
+                button.innerHTML = '<i class="fa-solid fa-eye"></i>';
+            }
+        }
+
+        // Realtime password strength checker
+        const passwordInput = document.getElementById('registerPassword');
+        passwordInput.addEventListener('input', function() {
+            const password = this.value;
+            
+            // Check length
+            const lengthCheck = document.getElementById('length-check');
+            if (password.length >= 8) {
+                lengthCheck.querySelector('i').className = 'fa-solid fa-check text-green-500 mr-2 text-xs';
+                lengthCheck.querySelector('span').className = 'text-green-600 font-medium';
+            } else {
+                lengthCheck.querySelector('i').className = 'fa-solid fa-circle text-gray-400 mr-2 text-[6px]';
+                lengthCheck.querySelector('span').className = 'text-gray-600';
+            }
+            
+            // Check uppercase
+            const uppercaseCheck = document.getElementById('uppercase-check');
+            if (/[A-Z]/.test(password)) {
+                uppercaseCheck.querySelector('i').className = 'fa-solid fa-check text-green-500 mr-2 text-xs';
+                uppercaseCheck.querySelector('span').className = 'text-green-600 font-medium';
+            } else {
+                uppercaseCheck.querySelector('i').className = 'fa-solid fa-circle text-gray-400 mr-2 text-[6px]';
+                uppercaseCheck.querySelector('span').className = 'text-gray-600';
+            }
+            
+            // Check lowercase
+            const lowercaseCheck = document.getElementById('lowercase-check');
+            if (/[a-z]/.test(password)) {
+                lowercaseCheck.querySelector('i').className = 'fa-solid fa-check text-green-500 mr-2 text-xs';
+                lowercaseCheck.querySelector('span').className = 'text-green-600 font-medium';
+            } else {
+                lowercaseCheck.querySelector('i').className = 'fa-solid fa-circle text-gray-400 mr-2 text-[6px]';
+                lowercaseCheck.querySelector('span').className = 'text-gray-600';
+            }
+            
+            // Check number
+            const numberCheck = document.getElementById('number-check');
+            if (/\d/.test(password)) {
+                numberCheck.querySelector('i').className = 'fa-solid fa-check text-green-500 mr-2 text-xs';
+                numberCheck.querySelector('span').className = 'text-green-600 font-medium';
+            } else {
+                numberCheck.querySelector('i').className = 'fa-solid fa-circle text-gray-400 mr-2 text-[6px]';
+                numberCheck.querySelector('span').className = 'text-gray-600';
+            }
+        });
+
+        // Validate confirm password
+        const confirmPasswordInput = document.getElementById('confirmPassword');
+        confirmPasswordInput.addEventListener('input', function() {
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = this.value;
+            const errorSpan = document.getElementById('confirmPassword-error');
+            
+            if (confirmPassword && password !== confirmPassword) {
+                errorSpan.classList.remove('hidden');
+                this.classList.add('border-red-500');
+            } else {
+                errorSpan.classList.add('hidden');
+                this.classList.remove('border-red-500');
+            }
+        });
+
+        // Validate date of birth (must be at least 13 years old)
+        const dateInput = document.getElementById('dateOfBirth');
+        dateInput.addEventListener('change', function() {
+            const birthDate = new Date(this.value);
+            const today = new Date();
+            const age = today.getFullYear() - birthDate.getFullYear();
+            const monthDiff = today.getMonth() - birthDate.getMonth();
+            
+            const errorSpan = document.getElementById('dateOfBirth-error');
+            
+            if (age < 13 || (age === 13 && monthDiff < 0)) {
+                errorSpan.classList.remove('hidden');
+                this.classList.add('border-red-500');
+            } else {
+                errorSpan.classList.add('hidden');
+                this.classList.remove('border-red-500');
+            }
+        });
+
+        // Form submission validation
+        document.getElementById('registerForm').addEventListener('submit', function(e) {
+            const password = document.getElementById('registerPassword').value;
+            const confirmPassword = document.getElementById('confirmPassword').value;
+            
+            if (password !== confirmPassword) {
+                e.preventDefault();
+                document.getElementById('confirmPassword-error').classList.remove('hidden');
+                document.getElementById('confirmPassword').classList.add('border-red-500');
+                document.getElementById('confirmPassword').focus();
+                return false;
+            }
+            
+            // Check age
+            const birthDate = new Date(document.getElementById('dateOfBirth').value);
+            const today = new Date();
+            const age = today.getFullYear() - birthDate.getFullYear();
+            
+            if (age < 13) {
+                e.preventDefault();
+                document.getElementById('dateOfBirth-error').classList.remove('hidden');
+                document.getElementById('dateOfBirth').focus();
+                return false;
+            }
+        });
+
+        // Input validation on blur
+        document.querySelectorAll('input[pattern]').forEach(input => {
+            input.addEventListener('blur', function() {
+                const errorSpan = document.getElementById(this.id + '-error');
+                if (this.value && !this.checkValidity()) {
+                    if (errorSpan) errorSpan.classList.remove('hidden');
+                    this.classList.add('border-red-500');
+                } else {
+                    if (errorSpan) errorSpan.classList.add('hidden');
+                    this.classList.remove('border-red-500');
+                }
+            });
+        });
+
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('focus', function () {
+                this.parentElement.classList.add('transform', 'scale-105');
+            });
+            input.addEventListener('blur', function () {
+                this.parentElement.classList.remove('transform', 'scale-105');
+            });
+        });
+
+        document.querySelectorAll('button[type="submit"]').forEach(button => {
+            button.addEventListener('click', function (e) {
+                const ripple = document.createElement('span');
+                const rect = this.getBoundingClientRect();
+                const size = Math.max(rect.width, rect.height);
+                const x = e.clientX - rect.left - size / 2;
+                const y = e.clientY - rect.top - size / 2;
+                ripple.style.width = ripple.style.height = size + 'px';
+                ripple.style.left = x + 'px';
+                ripple.style.top = y + 'px';
+                ripple.classList.add('ripple');
+                this.appendChild(ripple);
+                setTimeout(() => ripple.remove(), 600);
+            });
+        });
+    </script>
+    <style>
+        .glass-effect {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .input-glow {
+            transition: all 0.3s ease;
+        }
+
+            .input-glow:focus {
+                box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+                transform: translateY(-2px);
+            }
+
+        .btn-hover {
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+            .btn-hover:hover {
+                transform: translateY(-3px);
+                box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+            }
+    </style>
+}

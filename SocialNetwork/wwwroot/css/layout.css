@@ -1,0 +1,428 @@
+﻿@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+    font-family: 'Inter', sans-serif;
+}
+/* Đảm bảo khối cha (custom-select) có position: relative để select-options có thể position: absolute */
+.custom-select {
+    position: relative;
+    /* Có thể thêm width/padding nếu cần */
+    display: inline-block;
+}
+
+/* Ẩn danh sách lựa chọn ban đầu */
+.select-options {
+    /* Ẩn danh sách */
+    display: none;
+    /* Đặt vị trí tuyệt đối (nó sẽ chồng lên các phần tử khác) */
+    position: absolute;
+    /* Đặt nó ở ngay dưới select-displayed */
+    top: 100%;
+    left: 0;
+    /* Đảm bảo nó không bị khuất sau các element khác */
+    z-index: 10;
+    /* Thêm style cho đẹp (background, border, padding) */
+    background-color: white;
+    border: 1px solid #ccc;
+    list-style: none; /* Bỏ dấu chấm mặc định của ul */
+    padding: 0;
+    margin: 0;
+    min-width: 150px;
+}
+
+    /* Hiển thị danh sách khi có class 'active' (được JS thêm vào) */
+    .select-options.active {
+        display: block;
+    }
+
+    /* Style cho từng lựa chọn (li) */
+    .select-options li {
+        padding: 8px 12px;
+        cursor: pointer;
+    }
+
+        .select-options li:hover {
+            background-color: #f0f0f0;
+        }
+/* ============================= DARK MODE CƠ BẢN - SẠCH SẼ ============================= */
+.dark body {
+    background-color: #0f172a;
+}
+select.fa option {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900; /* cần cho icon solid */
+    color: black; /* icon + chữ đều màu đen */
+}
+
+.dark .bg-white,
+.dark .card-hover,
+.dark .rounded-xl,
+.dark .shadow-sm {
+    background-color: #1e293b !important;
+    color: #f1f5f9 !important;
+    border: 1px solid #334155 !important;
+}
+
+.dark header {
+    background-color: #1e293b !important;
+}
+
+    .dark header a,
+    .dark header span,
+    .dark header i {
+        color: #ffffff !important;
+    }
+
+.dark input[type="text"],
+.dark input[type="search"] {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    border: 1px solid #334155 !important;
+}
+
+.dark input::placeholder {
+    color: #94a3b8 !important;
+}
+
+.dark #userDropdown,
+.dark #messageDropdown,
+.dark #notificationDropdown {
+    background-color: #1e293b !important;
+    border: 1px solid #334155 !important;
+}
+
+    .dark #userDropdown a:hover,
+    .dark #notificationDropdown a:hover,
+    .dark #messageDropdown a:hover {
+        background-color: #334155 !important;
+    }
+
+.dark .text-gray-900,
+.dark .text-gray-800,
+.dark .text-gray-700,
+.dark .text-gray-600,
+.dark .text-gray-500 {
+    color: #e2e8f0 !important;
+}
+
+.dark .bg-gray-100 {
+    background-color: #1e293b !important;
+}
+
+.dark .text-gray {
+    color: #e2e8f0 !important;
+}
+
+    .dark .text-gray:hover {
+        color: #c4b5fd !important;
+    }
+
+.dark #postModal .bg-white {
+    background-color: #1f2937 !important;
+}
+
+.dark #stat-posts,
+.dark #stat-friends,
+.dark #stat-followers {
+    color: white !important;
+}
+
+.dark .text-xs.text-gray-500 {
+    color: #94a3b8 !important;
+}
+
+/* Footer - Màu phẳng đẹp */
+.gradient-bg {
+    background-color: #667eea;
+}
+
+.dark .gradient-bg {
+    background-color: #1e293b;
+}
+
+/* ============================= HOVER BÀI VIẾT - NHẸ NHÀNG, KHÔNG XÁM ============================= */
+.post-container:hover,
+.card-hover:hover {
+    background-color: #f8fafc !important;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+    transition: all 0.25s ease;
+}
+
+.dark .post-container:hover,
+.dark .card-hover:hover {
+    background-color: rgba(255, 255, 255, 0.06) !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    transform: translateY(-2px);
+}
+
+/* Nút hành động (Thích, Bình luận, Chia sẻ) */
+.reaction-btn:hover {
+    background-color: #e2e8f0 !important;
+    border-radius: 8px;
+}
+
+.dark .reaction-btn:hover {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+/* ============================= THÔNG BÁO & TIN NHẮN CHƯA ĐỌC - ĐƠN GIẢN ĐẸP ============================= */
+/* Light mode - thông báo chưa đọc */
+#notification-list > div.bg-blue-50,
+#message-list > div.unread {
+    background-color: #eff6ff !important;
+    border-left: 4px solid #3b82f6 !important;
+    border-radius: 8px;
+    margin: 6px 8px !important;
+    padding: 12px !important;
+}
+
+    #notification-list > div.bg-blue-50:hover,
+    #message-list > div.unread:hover {
+        background-color: #dbeafe !important;
+        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.15);
+    }
+
+/* Dark mode - thông báo & tin nhắn chưa đọc */
+.dark .bg-blue-600 {
+    background: linear-gradient(135deg, rgb(37, 99, 235), rgb(37, 99, 235)) !important;
+    color: white !important;
+}
+.dark #notification-list > div.bg-blue-50,
+.dark #message-list > div.unread {
+    background-color: #2b323b !important;
+    border-left: 4px solid rgb(37, 99, 235) !important;
+    color: white !important;
+}
+
+    .dark #notification-list > div.bg-blue-50:hover,
+    .dark #message-list > div.unread:hover {
+        background-color: #475569 !important;
+        box-shadow: 0 6px 20px rgba(139, 92, 246, 0.4);
+    }
+
+/* Thông báo đã đọc - hover nhẹ */
+#notification-list > div:not(.bg-blue-50):hover {
+    background-color: #f1f5f9 !important;
+}
+
+.dark #notification-list > div:not(.bg-blue-50):hover {
+    background-color: rgba(139, 92, 246, 0.15) !important;
+}
+
+/* ============================= HIỆU ỨNG NHỎ ============================= */
+.notification-badge {
+    background-color: #ef4444;
+    animation: bounce 1.5s infinite;
+}
+/* Dark mode: nút Hủy cũng phải tối hơn nữa cho hợp */
+.dark #confirmationModal .bg-gray-300 {
+    background-color: #475569 !important; /* Xám slate đẹp */
+}
+
+    .dark #confirmationModal .bg-gray-300:hover {
+        background-color: #334155 !important;
+    }
+@keyframes bounce {
+    0%, 100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-4px);
+    }
+}
+
+.online-dot {
+    background-color: #10b981;
+    width: 12px;
+    height: 12px;
+    border: 3px solid white;
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.6);
+}
+
+.card-hover {
+    transition: all 0.3s ease;
+}
+/* 2. Viền dưới phần like + viền phân cách comment */
+.border-gray-200,
+.border-gray-100,
+[class*="border-gray-"] {
+    border-color: #e5e7eb !important;
+}
+
+.dark .border-gray-200,
+.dark .border-gray-100,
+.dark [class*="border-gray-"] {
+    border-color: #374151 !important;
+}
+/* 4. Ép đè toàn bộ viền còn sót lại (nếu có) */
+.dark .border,
+.dark .border-t,
+.dark .border-b,
+.dark .border-l,
+.dark .border-r {
+    border-color: #374151 !important;
+}
+/* Hover cho các nút hành động (Thích, Bình luận, Chia sẻ) */
+.dark .reaction-btn:hover,
+.dark .hover\:bg-gray-100:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-radius: 8px;
+}
+
+/* Hover cho bình luận */
+.dark .bg-gray-100:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+/* ==========================================================================
+       ĐĂNG NHẬP & ĐĂNG KÝ - ĐẸP ĐỒNG BỘ VỚI TOÀN SITE (Light + Dark Mode)
+       ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+* {
+    font-family: 'Inter', sans-serif;
+}
+
+/* Nền trang đăng nhập/đăng ký */
+.auth-page {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px 0;
+}
+
+/* Dark mode: nền tím đen cực chất */
+.dark .auth-page {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%) !important;
+}
+
+/* Card đăng nhập/đăng ký */
+.auth-card {
+    background: rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 24px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    transition: all 0.4s ease;
+}
+
+    .auth-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 30px 60px rgba(0, 0, 0, 0.3);
+    }
+
+/* Dark mode: card trong suốt + viền đẹp */
+.dark .auth-card {
+    background: rgba(30, 41, 59, 0.6) !important;
+    border: 1px solid #334155 !important;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Input đẹp */
+.auth-input {
+    background: rgba(255, 255, 255, 0.2) !important;
+    border: none !important;
+    color: white !important;
+    backdrop-filter: blur(10px);
+}
+
+    .auth-input::placeholder {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+
+    .auth-input:focus {
+        box-shadow: 0 0 20px rgba(139, 92, 246, 0.6) !important;
+        transform: translateY(-2px);
+        outline: none !important;
+    }
+
+/* Dark mode input: nền tối hơn, chữ trắng */
+.dark .auth-input {
+    background: rgba(255, 255, 255, 0.08) !important;
+    color: #e2e8f0 !important;
+}
+
+    .dark .auth-input::placeholder {
+        color: #94a3b8 !important;
+    }
+
+/* Nút submit siêu đẹp */
+.auth-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: 600;
+    border-radius: 16px;
+    padding: 14px;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+    .auth-btn:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
+    }
+
+    .auth-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: 0.6s;
+    }
+
+    .auth-btn:hover::before {
+        left: 100%;
+    }
+
+/* Ripple effect */
+.ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    transform: scale(0);
+    animation: ripple-animation 0.6s linear;
+    pointer-events: none;
+}
+
+@keyframes ripple-animation {
+    to {
+        transform: scale(4);
+        opacity: 0;
+    }
+}
+
+/* Text link */
+.auth-link {
+    color: #c4b5fd !important;
+    font-weight: 500;
+}
+
+    .auth-link:hover {
+        color: #e0e7ff !important;
+        text-decoration: underline;
+    }
+
+/* Checkbox */
+.auth-checkbox {
+    accent-color: #a78bfa;
+}
+
+/* Thông báo lỗi */
+.error-message {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+    border: 1px solid #f87171;
+    border-radius: 12px;
+    padding: 12px;
+    backdrop-filter: blur(10px);
+}

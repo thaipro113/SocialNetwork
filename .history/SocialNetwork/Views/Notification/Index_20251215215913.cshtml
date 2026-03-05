@@ -1,0 +1,269 @@
+﻿@using System.Text.RegularExpressions
+@{
+    ViewData["Title"] = "Trang chủ";
+    Layout = "~/Views/Shared/Temp.cshtml";
+    var notifications = ViewBag.Notifications as IEnumerable<dynamic>;
+}
+@functions {
+    public string RenderNotificationMessage(string message) {
+        if (string.IsNullOrEmpty(message)) return "";
+        return Regex.Replace(message, 
+            @"\{\{mention:\d+:(.*?)\}\}", 
+            "<span class=\"text-blue-600 font-semibold\">@$1</span>");
+    }
+}
+
+<div class="max-w-3xl mx-auto mt-6 bg-white rounded-xl shadow p-6 dark:bg-gray-800 dark:text-gray-200">
+    <h2 class="text-xl font-bold mb-4">Thông báo</h2>
+
+    <div class="flex gap-6 border-b pb-2 mb-4">
+        <button id="tabAll" class="tab-btn text-blue-600 font-semibold border-b-2 border-blue-600">Tất cả</button>
+        <button id="tabUnread" class="tab-btn text-gray-600 hover:text-blue-600">Chưa đọc</button>
+    </div>
+    <!-- Tất cả thông báo -->
+    <div id="allTab">
+        @if (notifications == null || !notifications.Any())
+        {
+            <div class="text-center text-gray-500 py-8">
+                 Không có thông báo nào.
+            </div>
+        }
+        else
+        {
+            @foreach (var n in notifications)
+            {
+                <div class="notification-item flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition @(!n.IsRead ? "bg-blue-50 dark:bg-blue-900" : "") dark:text-gray-200"
+                     data-id="@n.Id"
+                     data-postid="@(n.PostId ?? 0)"
+                     data-type="@n.Type"
+                     style="cursor:pointer;">
+                    <img src="@n.FromUser.Avatar" alt="Avatar" class="w-11 h-11 rounded-full object-cover" />
+                    <div class="flex-1">
+                        <p class="text-sm dark:text-gray-200">
+                            <strong>@n.FromUser.FullName</strong> @n.Message
+                        </p>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">@n.CreatedAt.ToString("HH:mm dd/MM/yyyy")</span>
+                    </div>
+                    @if (!n.IsRead)
+                    {
+                        <span class="w-2 h-2 bg-blue-500 rounded-full mt-2"></span>
+                    }
+                    <button class="delete-btn text-gray-400 hover:text-red-500 ml-2 dark:text-gray-300 hover:dark:text-red-400" title="Xóa thông báo">
+                        ✕
+                    </button>
+                </div>
+            }
+        }
+    </div>
+
+    <!-- Tab chưa đọc -->
+    <div id="unreadTab" class="hidden">
+        @{
+            var unread = notifications?.Where(n => !n.IsRead).ToList() ?? new List<dynamic>();
+        }
+
+        @if (!unread.Any())
+        {
+            <div class="text-center text-gray-500 py-8">
+                <i class="fa-solid fa-square-check mr-2"></i> Bạn đã đọc hết thông báo.
+            </div>
+        }
+        else
+        {
+            @foreach (var n in unread)
+            {
+                <div class="notification-item flex items-start gap-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition bg-blue-50 dark:bg-blue-900 dark:text-gray-200"
+                     data-id="@n.Id"
+                     data-postid="@(n.PostId ?? 0)"
+                     data-type="@n.Type"
+                     style="cursor:pointer;">
+                    <img src="@n.FromUser.Avatar" alt="Avatar" class="w-11 h-11 rounded-full object-cover" />
+                    <div class="flex-1">
+                        <p class="text-sm dark:text-gray-200">
+                            <strong>@n.FromUser.FullName</strong> @n.Message
+                        </p>
+                        <span class="text-xs text-gray-400 dark:text-gray-500">@n.CreatedAt.ToString("HH:mm dd/MM/yyyy")</span>
+                    </div>
+                    <span class="w-2 h-2 bg-blue-500 rounded-full mt-2"></span>
+                    <button class="delete-btn text-gray-400 hover:text-red-500 ml-2" title="Xóa thông báo">
+                        ✕
+                    </button>
+                </div>
+            }
+        }
+    </div>
+
+
+    <div class="flex justify-between items-center mt-4 text-sm">
+        <button id="btnMarkAll" class="text-blue-600 hover:underline dark:text-blue-400">Đánh dấu tất cả là đã đọc</button>
+        <button id="btnDeleteAll" class="text-red-600 hover:underline dark:text-red-400">Xóa tất cả thông báo</button>
+    </div>
+    <!-- Modal xác nhận -->
+    <div id="confirmationModal"
+         class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96 text-center shadow-lg dark:bg-gray-800 dark:text-gray-200">
+            <p class="text-lg font-semibold text-gray-800 mb-4">Xác nhận</p>
+            <p id="confirmMessage" class="text-gray-600 mb-6">
+                Bạn có chắc muốn xóa thông báo này?
+            </p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirmDelete"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">
+                    Xóa
+                </button>
+                <button id="cancelDelete"
+                        class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400">
+                    Hủy
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+@section Scripts {
+    <script>
+        // Chuyển tab
+        document.getElementById("tabAll").addEventListener("click", () => {
+            document.getElementById("allTab").classList.remove("hidden");
+            document.getElementById("unreadTab").classList.add("hidden");
+            document.getElementById("tabAll").classList.add("text-blue-600", "font-semibold", "border-b-2", "border-blue-600");
+            document.getElementById("tabUnread").classList.remove("text-blue-600", "font-semibold", "border-b-2", "border-blue-600");
+        });
+
+        document.getElementById("tabUnread").addEventListener("click", () => {
+            document.getElementById("unreadTab").classList.remove("hidden");
+            document.getElementById("allTab").classList.add("hidden");
+            document.getElementById("tabUnread").classList.add("text-blue-600", "font-semibold", "border-b-2", "border-blue-600");
+            document.getElementById("tabAll").classList.remove("text-blue-600", "font-semibold", "border-b-2", "border-blue-600");
+        });
+
+        // Đánh dấu tất cả là đã đọc
+        document.getElementById("btnMarkAll").addEventListener("click", async () => {
+            const response = await fetch("/Notification/MarkAsRead", { method: "POST" });
+            const data = await response.json();
+            if (data.success) {
+                document.querySelectorAll(".notification-item").forEach(item => {
+                    item.classList.remove("bg-blue-50");
+                    const dot = item.querySelector("span.w-2");
+                    if (dot) dot.remove();
+                });
+                updateNotificationCount(); // Cập nhật số lượng thông báo
+            }
+        });
+
+        let deleteAction = null; 
+
+        // Hàm hiển thị modal xác nhận
+        function showConfirmModal(message, onConfirm) {
+            document.getElementById("confirmMessage").textContent = message;
+            document.getElementById("confirmationModal").classList.remove("hidden");
+
+            deleteAction = onConfirm;
+        }
+
+        // Nút Hủy
+        document.getElementById("cancelDelete").addEventListener("click", () => {
+            document.getElementById("confirmationModal").classList.add("hidden");
+            deleteAction = null;
+        });
+
+        // Nút Xóa
+        document.getElementById("confirmDelete").addEventListener("click", async () => {
+            document.getElementById("confirmationModal").classList.add("hidden");
+            if (typeof deleteAction === "function") deleteAction();
+            deleteAction = null;
+        });
+
+        // 🗑️ Xóa từng thông báo
+        document.querySelectorAll(".delete-btn").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.preventDefault();
+                const item = btn.closest(".notification-item");
+                const id = item.dataset.id;
+
+                showConfirmModal("Bạn có chắc muốn xóa thông báo này?", async () => {
+                    const response = await fetch(`/Notification/Delete?id=${id}`, { method: "POST" });
+                    const data = await response.json();
+                    if (data.success) {
+                        item.remove();
+                        updateNotificationCount();
+                    }
+                });
+            });
+        });
+
+        // 🗑️ Xóa tất cả thông báo
+        document.getElementById("btnDeleteAll").addEventListener("click", () => {
+            showConfirmModal("Bạn có chắc muốn xóa tất cả thông báo?", async () => {
+                const response = await fetch("/Notification/DeleteAll", { method: "POST" });
+                const data = await response.json();
+                if (data.success) {
+                    document.querySelectorAll(".notification-item").forEach(item => item.remove());
+                    updateNotificationCount();
+                }
+            });
+        });
+
+
+        // Hàm cập nhật số lượng thông báo (tương tự layout)
+        function updateNotificationCount() {
+            fetch("/Notification/GetNotifications")
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const notificationCount = document.getElementById("notification-count");
+                        if (notificationCount) {
+                            const unreadCount = data.unread;
+                            notificationCount.textContent = unreadCount > 99 ? "99+" : unreadCount;
+                        }
+                    }
+                });
+        }
+
+        // Gọi hàm cập nhật số lượng khi trang load
+        document.addEventListener("DOMContentLoaded", () => {
+            updateNotificationCount();
+        });
+        // Khi ấn vào 1 thông báo
+        document.querySelectorAll(".notification-item").forEach(item => {
+            item.addEventListener("click", async (e) => {
+                // Không cho click vào nút xoá
+                if (e.target.closest(".delete-btn")) return;
+
+                const id = item.dataset.id;
+                const postId = item.dataset.postid;
+
+                // Nếu chưa đọc thì gửi request đánh dấu đã đọc
+                if (item.classList.contains("bg-blue-50")) {
+                    const response = await fetch(`/Notification/MarkSingleAsRead?id=${id}`, { method: "POST" });
+                    const data = await response.json();
+
+                    if (data.success) {
+                        item.classList.remove("bg-blue-50");
+                        const dot = item.querySelector("span.w-2");
+                        if (dot) dot.remove();
+
+                        // Giảm số lượng trên chuông thông báo
+                        const countEl = document.getElementById("notification-count");
+                        if (countEl) {
+                            let count = parseInt(countEl.textContent) || 0;
+                            count = Math.max(count - 1, 0);
+                            countEl.textContent = count > 99 ? "99+" : count;
+                        }
+                    }
+                }
+
+                // Chuyển đến bài viết tương ứng (nếu có PostId) hoặc trang bạn bè (nếu là friend request)
+                const notificationType = item.closest('.notification-item')?.dataset.type || '';
+                if (postId && postId !== "0" && postId !== "null" && parseInt(postId) > 0) {
+                    window.location.href = `/Post/Details/${postId}`;
+                } else if (notificationType.includes('friend')) {
+                    // Nếu là thông báo friend request, chuyển đến trang bạn bè
+                    window.location.href = `/Friend/Index`;
+                }
+            });
+        });
+
+    </script>
+}

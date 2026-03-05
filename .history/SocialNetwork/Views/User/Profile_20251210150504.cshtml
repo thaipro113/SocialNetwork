@@ -1,0 +1,1104 @@
+﻿
+@model SocialNetwork.Models.User
+@{
+    ViewData["Title"] = "Hồ sơ cá nhân";
+    Layout = "~/Views/Shared/Temp.cshtml";
+}
+
+<div class="max-w-6xl mx-auto px-4 py-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Sidebar trái -->
+        <div class="lg:col-span-1 space-y-6">
+            <!-- Thông tin cá nhân -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="text-center">
+                    <div class="relative inline-block">
+                        @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                        {
+                            <img src="~/uploads/@Model.ImageUrl" alt="Avatar" class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg">
+                        }
+                        else
+                        {
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Ccircle cx='48' cy='48' r='48' fill='%23f093fb'/%3E%3Ctext x='48' y='60' text-anchor='middle' fill='white' font-size='36' font-weight='bold'%3E@(Model.Username?.FirstOrDefault() ?? 'U')%3C/text%3E%3C/svg%3E" alt="Avatar" class="w-24 h-24 rounded-full border-4 border-white shadow-lg">
+                        }
+                        <div class="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 rounded-full border-2 border-white"></div>
+                    </div>
+                    <h2 class="text-xl font-bold text-gray-800 mb-1">@(Model.FullName ?? Model.Username)</h2>
+                    <p class="text-gray-600 mb-4">@(Model.Role ?? "Người dùng")</p>
+                    <div class="flex justify-center space-x-6 text-sm text-gray-600 mb-4">
+                        <div class="text-center">
+                            <div class="font-semibold text-gray-800">@ViewBag.FriendCount</div>
+                            <div>Bạn bè</div>
+                        </div>
+                        <div class="text-center">
+                            <div class="font-semibold text-gray-800">@(Model.Posts?.Count ?? 0)</div>
+                            <div>Bài viết</div>
+                        </div>
+                    </div>
+                    @{
+                        var myId = Context.Session.GetInt32("UserId");
+                        var isMe = myId == Model.UserId;
+                    }
+                    @if (isMe)
+                    {
+                        <a asp-action="EditProfile" asp-controller="User" asp-route-id="@Model.UserId"
+                           class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                            Chỉnh sửa hồ sơ
+                        </a>
+                    }
+                    else
+                    {
+                        <div id="friend-action-container" class="mt-4">
+                            <!-- Button rendered by JS -->
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Giới thiệu -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <h3 class="font-semibold text-gray-800 mb-4">Giới thiệu</h3>
+                <div class="space-y-3 text-sm">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-gray-500"><i class="fa-solid fa-envelope"></i></span>
+                        <span class="text-gray-700">Email: @(Model.Email ?? "Chưa cung cấp")</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-gray-500"><i class="fa-solid fa-cake-candles"></i></span>
+                        <span class="text-gray-700">Ngày sinh: @(Model.DateOfBirth?.ToString("dd/MM/yyyy") ?? "Chưa cung cấp")</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-gray-500"><i class="fa-solid fa-mobile"></i></span>
+                        <span class="text-gray-700">Số điện thoại: @(Model.PhoneNumber ?? "Chưa cung cấp")</span>
+                    </div>
+                    <div class="flex items-center space-x-3">
+                        <span class="text-gray-500"><i class="fa-solid fa-calendar-days"></i></span>
+                        <span class="text-gray-700">Ngày tham gia: @(Model.CreatedAt?.ToString("dd/MM/yyyy") ?? "Chưa rõ")</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nội dung chính -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Tạo bài viết -->
+            <div class="bg-white rounded-xl shadow-sm p-6">
+                <div class="flex items-center space-x-4 mb-4">
+                    @{
+                        var username = Context.Session.GetString("FullName") ?? Model.Username;
+                        var avatarFileName = Context.Session.GetString("ImageUrl");
+                        var avatarUrl = string.IsNullOrEmpty(avatarFileName)
+                        ? Url.Content("~/uploads/default-avatar.png")
+                        : Url.Content($"~/uploads/{avatarFileName}");
+                    }
+                    <img src="@avatarUrl" alt="Avatar"
+                         class="w-10 h-10 rounded-full object-cover hover:ring-2 hover:ring-white/50 transition-all" />
+                    <input type="text" placeholder="Bạn đang nghĩ gì?" class="flex-1 bg-gray-100 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           onclick="openPostModal()" />
+                </div>
+                <div class="flex items-center justify-between">
+                    <div class="flex space-x-4">
+                        <button class="flex items-center space-x-2 text-gray hover:text-purple transition-colors" onclick="@(HttpContextAccessor.HttpContext.Session.GetInt32("UserId") != null ? "openPostModal()" : "window.location.href='" + Url.Action("Login", "Account") + "'")">
+                            <span><i class="fa-solid fa-image"></i></span>
+                            <span class="text-sm hidden sm:inline">Ảnh/Video</span>
+                        </button>
+                        <button class="flex items-center space-x-2 text-gray hover:text-blue transition-colors" onclick="@(HttpContextAccessor.HttpContext.Session.GetInt32("UserId") != null ? "openPostModal()" : "window.location.href='" + Url.Action("Login", "Account") + "'")">
+                            <span><i class="fa-regular fa-face-grin"></i></span>
+                            <span class="text-sm hidden sm:inline">Cảm xúc</span>
+                        </button>
+                    </div>
+                    <button type="button" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                            onclick="openPostModal()">
+                        Đăng
+                    </button>
+                </div>
+            </div>
+
+            <!-- Modal tạo bài viết -->
+            @using Microsoft.AspNetCore.Http
+            @inject IHttpContextAccessor HttpContextAccessor
+            <!-- Modal tạo bài viết - ĐÃ FIX DARK MODE HOÀN HẢO -->
+            @if (HttpContextAccessor.HttpContext.Session.GetInt32("UserId") != null)
+            {
+                <div id="postModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 overflow-y-auto">
+                    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-full max-w-lg mx-4 my-8 shadow-2xl">
+                        <div class="flex items-center justify-between mb-4 border-b border-gray-200 dark:border-gray-700 pb-4">
+                            <h3 class="text-xl font-bold text-gray-900 dark:text-white">Tạo bài viết</h3>
+                            <button type="button" onclick="closePostModal()"
+                                    class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl">
+                                ×
+                            </button>
+                        </div>
+
+                        <form asp-controller="Post" asp-action="Create" method="post" enctype="multipart/form-data">
+                            <input type="hidden" name="returnUrl" value="@Url.Action("Profile", "User", new { id = Model.UserId })" />
+
+                            <div class="flex items-center space-x-3 mb-5">
+                                <img src="@avatarUrl" alt="Avatar"
+                                     class="w-12 h-12 rounded-full object-cover ring-2 ring-gray-300 dark:ring-gray-600" />
+                                <div>
+                                    <div class="font-semibold text-gray-900 dark:text-white">@username</div>
+                                    <div class="custom-select" data-selected-value="Private">
+                                        <div class="select-displayed cursor-pointer flex items-center space-x-2 text-sm font-medium
+                                        bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600
+                                        px-3 py-2 rounded-lg transition-all">
+                                            <i class="fa-solid fa-lock text-gray-600 dark:text-gray-400"></i>
+                                            <span class="text-gray-800 dark:text-gray-200">Chỉ mình tôi</span>
+                                            <i class="fa-solid fa-caret-down ml-auto text-gray-500"></i>
+                                        </div>
+                                        <ul class="select-options absolute mt-1 w-full bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600
+                                       rounded-lg shadow-xl z-20 overflow-hidden hidden">
+                                            <li data-value="Public" class="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center space-x-3">
+                                                <i class="fa-solid fa-earth-asia text-blue-600"></i>
+                                                <div>
+                                                    <div class="font-medium text-gray-900 dark:text-white">Công khai</div>
+                                                </div>
+                                            </li>
+                                            <li data-value="Friends" class="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center space-x-3">
+                                                <i class="fa-solid fa-user-group text-green-600"></i>
+                                                <div>
+                                                    <div class="font-medium text-gray-900 dark:text-white">Bạn bè</div>
+                                                </div>
+                                            </li>
+                                            <li data-value="Private" class="px-4 py-3 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer flex items-center space-x-3">
+                                                <i class="fa-solid fa-lock text-gray-600"></i>
+                                                <div>
+                                                    <div class="font-medium text-gray-900 dark:text-white">Chỉ mình tôi</div>
+                                                </div>
+                                            </li>
+                                        </ul>
+                                        <input type="hidden" name="visibility" value="Private">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <textarea name="Content" placeholder="Bạn đang nghĩ gì?" rows="5"
+                                      class="w-full p-4 bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700
+                                 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500
+                                 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400
+                                 text-lg transition-all"></textarea>
+
+                            <div id="preview-container" class="mt-4 hidden rounded-xl overflow-hidden border-2 border-dashed border-gray-300 dark:border-gray-600">
+                                <img id="preview-img" src="#" class="w-full hidden" />
+                                <video id="preview-video" controls class="w-full hidden"></video>
+                            </div>
+
+                            <div class="flex justify-between items-center mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                                <div class="flex space-x-3">
+                                    <button type="button" class="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-green-600"
+                                            onclick="document.getElementById('mediaInput').click()">
+                                        <i class="fa-solid fa-image text-xl"></i>
+                                    </button>
+                                    <button type="button" class="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all text-blue-600">
+                                        <i class="fa-regular fa-face-grin text-xl"></i>
+                                    </button>
+                                </div>
+                                <button type="submit"
+                                        class="bg-gradient-to-r from-blue-600 to-blue-600 hover:from-blue-700 hover:to-blue-700
+                                   text-white font-bold px-8 py-3 rounded-xl shadow-lg hover:shadow-xl
+                                   transform hover:-translate-y-0.5 transition-all duration-300">
+                                    Đăng bài
+                                </button>
+                            </div>
+
+                            <input type="file" name="media" id="mediaInput" class="hidden" accept="image/*,video/*" onchange="previewFile(event)" />
+                        </form>
+                    </div>
+                </div>
+            }
+
+            <!-- Share Modal -->
+            <div id="shareModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+                <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 shadow-lg">
+                    <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Chia sẻ bài viết</h3>
+                    <textarea id="shareContent" class="w-full p-2 border rounded-lg mb-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white" rows="3" placeholder="Viết suy nghĩ của bạn..."></textarea>
+                    <div class="flex justify-end space-x-3">
+                        <button id="cancelShare" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 dark:bg-gray-600 dark:text-white">Hủy</button>
+                        <button id="confirmShare" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Chia sẻ ngay</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Danh sách bài viết -->
+            <div class="space-y-6">
+                @if (Model.Posts != null && Model.Posts.Any())
+                {
+                    foreach (var post in Model.Posts.OrderByDescending(p => p.CreatedAt))
+                    {
+                        var commentSectionId = $"comment-section-{post.PostId}";
+                        <div class="bg-white rounded-xl shadow-sm post-hover">
+                            <div class="p-6">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div class="flex items-center space-x-3">
+                                        @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                                        {
+                                            <img src="~/uploads/@Model.ImageUrl" class="w-10 h-10 rounded-full object-cover border" />
+                                        }
+                                        else
+                                        {
+                                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23f093fb'/%3E%3Ctext x='20' y='26' text-anchor='middle' fill='white' font-size='16' font-weight='bold'%3E@(Model.Username?.FirstOrDefault() ?? 'U')%3C/text%3E%3C/svg%3E" class="w-10 h-10 rounded-full border" />
+                                        }
+                                        <div>
+                                            <h4 class="font-semibold text-gray-800">@Model.FullName</h4>
+                                            <!-- Post -->
+                                            <p class="text-sm text-gray-600">
+                                                <span class="time-ago" data-time="@post.CreatedAt.ToString("o")"></span> •
+                                                @{
+                                                    string icon = post.Visibility switch
+                                                    {
+                                                        "Public" => "<i class=\"fa-solid fa-earth-asia\"></i>",
+                                                        "Friends" => "<i class=\"fa-solid fa-user-group\"></i>",
+                                                        "Private" => "<i class=\"fa-solid fa-lock\"></i>",
+                                                        _ => "<i class=\"fa-solid fa-earth-asia\"></i>"
+                                                    };
+                                                    string visibilityText = post.Visibility switch
+                                                    {
+                                                        "Public" => "Công khai",
+                                                        "Friends" => "Bạn bè",
+                                                        "Private" => "Chỉ mình tôi",
+                                                        _ => "Công khai"
+                                                    };
+                                                }
+                                                @Html.Raw(icon) @visibilityText
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div class="relative inline-block text-left">
+                                        <button type="button"
+                                                onclick="toggleMenu(this)"
+                                                class="text-gray-400 hover:text-gray-600">
+                                            ⋯
+                                        </button>
+                                        <div class="hidden absolute right-0 mt-2 w-36 bg-white border rounded-lg shadow-md z-10 post-menu">
+                                            @if (Context.Session.GetInt32("UserId") == post.UserId)
+                                            {
+                                                <a href="@Url.Action("Edit", "Post", new { id = post.PostId })"
+                                                   class="block w-full px-3 py-2 text-left text-blue-600 hover:bg-blue-50">
+                                                    <i class="fa-solid fa-pen"></i> Chỉnh sửa
+                                                </a>
+                                                <form asp-action="Delete" asp-controller="Post" method="post"
+                                                      onsubmit="return confirm('Bạn có chắc muốn xóa bài này?');">
+                                                    <input type="hidden" name="postId" value="@post.PostId" />
+                                                    <input type="hidden" name="returnUrl" value="@Url.Action("Profile", "User", new { id = Model.UserId })" />
+                                                    <button type="submit"
+                                                            class="w-full px-3 py-2 text-left text-red-600 hover:bg-gray-100">
+                                                        <i class="fa-solid fa-trash-can"></i> Xóa
+                                                    </button>
+                                                </form>
+                                            }
+                                            else
+                                            {
+                                                <p class="px-3 py-2 text-sm text-gray-500">Không có hành động</p>
+                                            }
+                                        </div>
+                                    </div>
+                                </div>
+                                @if (post.OriginalPost != null)
+                                {
+                                    // === HIỂN THỊ BÀI CHIA SẺ ===
+                                    @if (!string.IsNullOrEmpty(post.Content))
+                                    {
+                                        <p class="text-gray-800 mb-4">@post.Content</p>
+                                    }
+
+                                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mt-2 bg-gray-50 dark:bg-gray-700/50">
+                                        <!-- Header bài gốc -->
+                                        <div class="flex items-center space-x-3 mb-3">
+                                            @{
+                                                var originalUser = post.OriginalPost.User;
+                                                var originalAvatar = !string.IsNullOrEmpty(originalUser?.ImageUrl) 
+                                                    ? Url.Content($"~/uploads/{originalUser.ImageUrl}") 
+                                                    : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='25' fill='%23f093fb'/%3E%3Ctext x='25' y='31' text-anchor='middle' fill='white' font-size='20' font-weight='bold'%3E" + (originalUser?.Username?.FirstOrDefault().ToString().ToUpper() ?? "U") + "%3C/text%3E%3C/svg%3E";
+                                            }
+                                            <a href="@Url.Action("Profile","User", new { id = post.OriginalPost.UserId })">
+                                                <img src="@originalAvatar" alt="Avatar" class="w-10 h-10 rounded-full object-cover border" />
+                                            </a>
+                                            <div>
+                                                <a href="@Url.Action("Profile","User", new { id = post.OriginalPost.UserId })">
+                                                    <h4 class="font-semibold text-gray-800 text-sm">@originalUser?.Username</h4>
+                                                </a>
+                                                <p class="text-xs text-gray-500">
+                                                    <span class="time-ago" data-time="@post.OriginalPost.CreatedAt.ToString("o")"></span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <!-- Nội dung bài gốc -->
+                                        @if (!string.IsNullOrEmpty(post.OriginalPost.Content))
+                                        {
+                                            <p class="text-gray-800 mb-3 text-sm">@post.OriginalPost.Content</p>
+                                        }
+
+                                        <!-- Media bài gốc -->
+                                        @if (!string.IsNullOrEmpty(post.OriginalPost.MediaUrl))
+                                        {
+                                            var ext = System.IO.Path.GetExtension(post.OriginalPost.MediaUrl).ToLower();
+                                            <div class="rounded-lg overflow-hidden">
+                                                @if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp")
+                                                {
+                                                    <img src="@post.OriginalPost.MediaUrl" alt="media" class="w-full rounded-lg" />
+                                                }
+                                                else if (ext == ".mp4" || ext == ".webm" || ext == ".ogg")
+                                                {
+                                                    <video controls class="w-full rounded-lg">
+                                                        <source src="@post.OriginalPost.MediaUrl" type="video/mp4" />
+                                                        Trình duyệt không hỗ trợ video.
+                                                    </video>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                                else
+                                {
+                                    // === HIỂN THỊ BÀI VIẾT THƯỜNG ===
+                                    @if (!string.IsNullOrEmpty(post.Content))
+                                    {
+                                        <p class="text-gray-800 mb-4">@post.Content</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(post.MediaUrl))
+                                    {
+                                        var ext = System.IO.Path.GetExtension(post.MediaUrl).ToLower();
+                                        <div class="rounded-lg overflow-hidden mb-4">
+                                            @if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif")
+                                            {
+                                                <img src="@post.MediaUrl" class="w-full rounded-lg" />
+                                            }
+                                            else if (ext == ".mp4" || ext == ".webm")
+                                            {
+                                                <video controls class="w-full rounded-lg">
+                                                    <source src="@post.MediaUrl" type="video/mp4" />
+                                                </video>
+                                            }
+                                        </div>
+                                    }
+                                }
+                            </div>
+                            <div class="border-t px-6 py-3">
+                                <div class="flex items-center mb-3">
+                                    <!-- Like count (bên trái) -->
+                                    <div class="flex items-center space-x-2"
+                                         id="like-wrapper-@post.PostId"
+                                         style="display:@(post.Likes.Any() ? "flex" : "none")">
+                                        <div class="flex -space-x-1 text-lg">
+                                            <img src="~/uploads/thumb-up.png" style="width:20px;" alt="Alternate Text" />
+                                        </div>
+                                        <span class="text-sm text-gray-600" id="like-count-@post.PostId">
+                                            @if (post.Likes.Any(l => l.UserId == Context.Session.GetInt32("UserId")))
+                                            {
+                                                if (post.Likes.Count > 1)
+                                                {
+                                                    <text>Bạn và @(post.Likes.Count - 1) người khác</text>
+                                                }
+                                                else
+                                                {
+                                                    <text>Bạn</text>
+                                                }
+                                            }
+                                            else if (post.Likes.Any())
+                                            {
+                                                <text>@post.Likes.Count lượt thích</text>
+                                            }
+                                            else
+                                            {
+                                                <text></text>
+                                            }
+                                        </span>
+                                    </div>
+
+                                    <!-- Comment count (bên phải) -->
+                                    <div class="text-sm text-gray-600 ml-auto @(post.Comments != null && post.Comments.Any() ? "" : "hidden")"
+                                         id="comment-count-@post.PostId">
+                                        <a onclick="toggleComments('comment-section-@post.PostId')" style="cursor:pointer;">
+                                            @(post.Comments != null ? post.Comments.Count : 0) bình luận
+                                        </a>
+                                    </div>
+                                </div>
+
+                                <!-- Action buttons -->
+                                <div class="flex justify-between">
+                                    <!-- Like -->
+                                    @if (Context.Session.GetInt32("UserId") != null)
+                                    {
+                                        <form asp-action="Like" asp-controller="Post" method="post" class="flex-1">
+                                            <input type="hidden" name="postId" value="@post.PostId" />
+                                            <button type="submit"
+                                                    class="reaction-btn w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors @(post.Likes.Any(l => l.UserId == Context.Session.GetInt32("UserId")) ? "text-blue-600 font-semibold" : "")"
+                                                    data-liked="@(post.Likes.Any(l => l.UserId == Context.Session.GetInt32("UserId")) ? "true" : "false")">
+                                                <i class="@(post.Likes.Any(l => l.UserId == Context.Session.GetInt32("UserId")) ? "fa-solid fa-thumbs-up" : "fa-regular fa-thumbs-up")"></i>
+                                                <span class="text-sm font-medium hidden sm:inline">
+                                                    @(post.Likes.Any(l => l.UserId == Context.Session.GetInt32("UserId")) ? "Đã thích" : "Thích")
+                                                </span>
+                                            </button>
+                                        </form>
+                                    }
+                                    else
+                                    {
+                                        <a href="@Url.Action("Login","Account")"
+                                           class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100">
+                                            <span>👍</span><span class="text-sm font-medium hidden sm:inline">Thích</span>
+                                        </a>
+                                    }
+
+                                    <!-- Comment -->
+                                    @if (Context.Session.GetInt32("UserId") != null)
+                                    {
+                                        <button type="button"
+                                                class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                                onclick="toggleComments('@commentSectionId')">
+                                            <span><i class="fa-regular fa-comment"></i></span>
+                                            <span class="text-sm font-medium hidden sm:inline">Bình luận</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <a href="@Url.Action("Login","Account")"
+                                           class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100">
+                                            <span><i class="fa-regular fa-comment"></i></span><span class="text-sm font-medium hidden sm:inline">Bình luận</span>
+                                        </a>
+                                    }
+
+                                    <!-- Share -->
+                                    @if (Context.Session.GetInt32("UserId") != null)
+                                    {
+                                        <button type="button"
+                                                class="share-btn flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                                data-post-id="@post.PostId">
+                                            <span><i class="fa-regular fa-share-from-square"></i></span>
+                                            <span class="text-sm font-medium hidden sm:inline">Chia sẻ</span>
+                                        </button>
+                                    }
+                                    else
+                                    {
+                                        <a href="@Url.Action("Login","Account")"
+                                           class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100">
+                                            <span><i class="fa-regular fa-share-from-square"></i></span><span class="text-sm font-medium hidden sm:inline">Chia sẻ</span>
+                                        </a>
+                                    }
+                                </div>
+                            </div>
+                            <div id="@commentSectionId" class="hidden px-6 py-4 border-t">
+                                <div class="mt-3 space-y-3">
+                                    @foreach (var comment in post.Comments)
+                                    {
+                                        var avatar = string.IsNullOrEmpty(comment.User?.ImageUrl) ? Url.Content("~/uploads/default-avatar.png") : Url.Content($"~/uploads/{comment.User.ImageUrl}");
+                                        <div class="flex items-start space-x-3">
+                                            <img src="@avatar" class="w-10 h-10 rounded-full object-cover" />
+                                            <div class="flex-1">
+                                                <div class="bg-gray-100 rounded-lg px-3 py-2 inline-block">
+                                                    <p class="font-semibold text-sm">@comment.User?.FullName</p>
+                                                    <p class="text-sm">@comment.Content</p>
+                                                </div>
+                                                <p class="text-xs text-gray-600 ml-2 flex items-center space-x-2">
+                                                    <span class="time-ago" data-time="@comment.CreatedAt?.ToString("o")"></span>
+                                                    @if (Context.Session.GetInt32("UserId") == comment.UserId || Context.Session.GetInt32("UserId") == post.UserId || Context.Session.GetString("Role") == "Admin")
+                                                    {
+                                                        <button type="button"
+                                                                class="text-red-600 text-xs under ml-2"
+                                                                onclick="deleteComment(@comment.CommentId, @post.PostId)">
+                                                            Xóa
+                                                        </button>
+                                                    }
+                                                </p>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                                <!-- Form nhập bình luận -->
+                                @if (HttpContextAccessor.HttpContext.Session.GetInt32("UserId") != null)
+                                {
+                                    <form class="comment-form flex items-center mt-3 space-x-2" data-post-id="@post.PostId">
+                                        <input type="hidden" name="postId" value="@post.PostId" />
+                                        @if (!string.IsNullOrEmpty(avatarFileName))
+                                        {
+                                            <img src="@avatarUrl" alt="Avatar" class="w-8 h-8 rounded-full object-cover hover:ring-2 hover:ring-white/50 transition-all" />
+                                        }
+                                        else
+                                        {
+                                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23f093fb'/%3E%3Ctext x='20' y='26' text-anchor='middle' fill='white' font-size='16' font-weight='bold'%3E@(username?.FirstOrDefault().ToString().ToUpper() ?? "U")%3C/text%3E%3C/svg%3E" alt="Avatar" class="w-8 h-8 rounded-full" />
+                                        }
+                                        <input type="text" name="content" placeholder="Viết bình luận..."
+                                               class="flex-1 border rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-purple-500" />
+                                        <button type="submit" class="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">Gửi</button>
+                                    </form>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+                else
+                {
+                    <p class="text-center text-gray-600">Chưa có bài viết nào.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .text-gray-500 {
+        margin-left: 0.5rem;
+    }
+</style>
+
+@section Scripts {
+    <script>
+        const targetUserId = @Model.UserId;
+
+        // Share Modal elements
+        const shareModal = document.getElementById("shareModal");
+        const confirmShareBtn = document.getElementById("confirmShare");
+        const cancelShareBtn = document.getElementById("cancelShare");
+        const shareContentInput = document.getElementById("shareContent");
+        let sharePostId = null;
+
+        // ==============================
+        // SHARE FUNCTIONALITY
+        // ==============================
+        document.querySelectorAll(".share-btn").forEach(btn => {
+            btn.addEventListener("click", function () {
+                sharePostId = this.dataset.postId;
+                shareContentInput.value = ""; // Clear previous content
+                if(shareModal) shareModal.classList.remove("hidden");
+            });
+        });
+
+        if(cancelShareBtn) {
+            cancelShareBtn.addEventListener("click", function () {
+                shareModal.classList.add("hidden");
+                sharePostId = null;
+            });
+        }
+
+        if(confirmShareBtn) {
+            confirmShareBtn.addEventListener("click", async function () {
+                if (!sharePostId) return;
+
+                const content = shareContentInput.value;
+                try {
+                    const res = await fetch("/Post/Share", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                        },
+                        body: `postId=${sharePostId}&content=${encodeURIComponent(content)}`
+                    });
+
+                    const data = await res.json();
+                    if (data.success) {
+                        alert("Chia sẻ thành công!");
+                        shareModal.classList.add("hidden");
+                        location.reload(); // Reload to show new post
+                    } else {
+                        alert("Có lỗi xảy ra khi chia sẻ.");
+                    }
+                } catch (err) {
+                    console.error("Share error:", err);
+                    alert("Lỗi kết nối.");
+                }
+            });
+        }
+
+        async function checkFriendStatus() {
+            const container = document.getElementById("friend-action-container");
+            if (!container) return;
+
+            try {
+                const res = await fetch(`/Friend/CheckFriendStatus?toUserId=${targetUserId}`);
+                const data = await res.json();
+
+                if (data.success) {
+                    renderFriendButton(data.status);
+                }
+            } catch (e) {
+                console.error("Lỗi check status", e);
+            }
+        }
+
+        function renderFriendButton(status) {
+            const container = document.getElementById("friend-action-container");
+            let html = "";
+
+            if (status === "friends") {
+                html = `
+                    <div class="relative inline-block text-left w-full">
+                        <button type="button" onclick="toggleFriendMenu()" class="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium flex items-center justify-center space-x-2">
+                            <span><i class="fa-solid fa-user-group"></i> Bạn bè</span>
+                            <span>▼</span>
+                        </button>
+                        <div id="friend-menu" class="hidden absolute right-0 mt-2 w-full bg-white border rounded-lg shadow-md z-10">
+                            <button onclick="unfriend()" class="w-full text-left px-4 py-2 text-red-600 hover:bg-gray-100 rounded-lg">
+                                 Hủy kết bạn
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else if (status === "outgoing_request") {
+                html = `
+                    <button onclick="cancelRequest()" class="w-full bg-gray-400 text-white py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors font-medium">
+                        Đã gửi lời mời (Hủy)
+                    </button>
+                `;
+            } else if (status === "incoming_request") {
+                html = `
+                    <div class="flex space-x-2">
+                        <button onclick="acceptRequest()" class="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                            Chấp nhận
+                        </button>
+                    <button onclick="declineRequest()"
+                            class="flex-1 bg-gray-300 dark:bg-gray-700
+                                   text-gray-800 dark:text-gray-200
+                                   py-2 px-4 rounded-lg
+                                   font-medium
+                                   hover:bg-gray-400 dark:hover:bg-gray-600
+                                   transition-colors duration-200
+                                   shadow-sm">
+                        Từ chối
+                    </button>
+                    </div>
+                `;
+            } else if (status === "none") {
+                html = `
+                    <button onclick="sendFriendRequest()" class="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 transition-colors font-medium">
+                                <i class="fa-solid fa-user-plus mr-2"></i>Kết bạn
+                    </button>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function toggleFriendMenu() {
+            const menu = document.getElementById("friend-menu");
+            if (menu) menu.classList.toggle("hidden");
+        }
+
+        // Close menu when clicking outside
+        document.addEventListener("click", function(e) {
+            const menu = document.getElementById("friend-menu");
+            const btn = e.target.closest("button[onclick='toggleFriendMenu()']");
+            if (menu && !menu.classList.contains("hidden") && !menu.contains(e.target) && !btn) {
+                menu.classList.add("hidden");
+            }
+        });
+
+        async function sendFriendRequest() {
+            try {
+                const res = await fetch("/Friend/SendRequest", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `toUserId=${targetUserId}`
+                });
+                const d = await res.json();
+                if (d.success) {
+                    renderFriendButton("outgoing_request");
+                    // showToast("Đã gửi lời mời!");
+                } else {
+                    alert(d.message);
+                }
+            } catch (e) {
+                alert("Lỗi mạng");
+            }
+        }
+
+        async function cancelRequest() {
+
+            try {
+                const res = await fetch("/Friend/CancelOutgoing", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(targetUserId)  // gửi luôn userId người nhận
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    renderFriendButton("none");
+                    showToast("Đã hủy lời mời kết bạn");
+                } else {
+                    alert(data.message || "Không thể hủy");
+                }
+            } catch (e) {
+                console.error(e);
+                alert("Lỗi mạng");
+            }
+        }
+
+        async function unfriend() {
+            try {
+                const res = await fetch("/Friend/Unfriend", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(targetUserId)
+                });
+                const d = await res.json();
+                if (d.success) {
+                    renderFriendButton("none");
+                } else {
+                    alert(d.message);
+                }
+            } catch (e) {
+                alert("Lỗi mạng");
+            }
+        }
+        
+        // Note: acceptRequest and declineRequest logic would be similar, 
+        // needing requestId. For now assuming user goes to Friend page for incoming, 
+        // or we implement GetRequestId logic for incoming too if needed.
+        // But for "Profile" of someone sending ME a request, I should see Accept/Decline.
+        
+        async function acceptRequest() {
+             try {
+                // Lấy requestId chiều ngược lại (incoming)
+                // API GetRequestId hiện tại tìm outgoing. Cần sửa hoặc thêm API mới?
+                // Tuy nhiên, ta có thể dùng API GetRequestId hiện tại nếu nó tìm cả 2 chiều? 
+                // Kiểm tra lại FriendController.GetRequestId: 
+                // .FirstOrDefault(r => r.ToUserId == userId && r.FromUserId == toUserId ...
+                // Đúng là nó tìm incoming request (ToUserId == me, FromUserId == target).
+                
+                const r = await fetch(`/Friend/GetRequestId?toUserId=${targetUserId}`); 
+                // Wait, GetRequestId implementation:
+                // r.ToUserId == userId (Me) && r.FromUserId == toUserId (Target)
+                // So calling GetRequestId(targetUserId) actually finds the INCOMING request from target to me.
+                
+                const d = await r.json();
+                if (d.success) {
+                     const res = await fetch("/Friend/Accept", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(d.requestId)
+                    });
+                    if (res.ok) {
+                        renderFriendButton("friends");
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function declineRequest() {
+             try {
+                const r = await fetch(`/Friend/GetRequestId?toUserId=${targetUserId}`);
+                const d = await r.json();
+                if (d.success) {
+                     const res = await fetch("/Friend/Decline", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(d.requestId)
+                    });
+                    if (res.ok) {
+                        renderFriendButton("none");
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            checkFriendStatus();
+            updateTimes();
+        });
+
+        function toggleComments(id) {
+            const el = document.getElementById(id);
+            el.classList.toggle("hidden");
+        }
+
+        // Toggle menu
+        function toggleMenu(btn) {
+            const menu = btn.nextElementSibling;
+            document.querySelectorAll(".post-menu").forEach(m => {
+                if (m !== menu) m.classList.add("hidden");
+            });
+            menu.classList.toggle("hidden");
+        }
+
+        document.addEventListener("click", function (e) {
+            document.querySelectorAll(".post-menu").forEach(menu => {
+                if (!menu.parentElement.contains(e.target)) {
+                    menu.classList.add("hidden");
+                }
+            });
+        });
+
+        // Lấy token chống CSRF
+        function getToken() {
+            return document.querySelector("input[name='__RequestVerificationToken']").value;
+        }
+
+        function toggleMetaVisibility(postId, likes, comments) {
+            const likeEl = document.getElementById(`like-wrapper-${postId}`);
+            const commentEl = document.getElementById(`comment-count-${postId}`);
+
+            // xử lý like
+            if (likeEl) {
+                if (!likes || likes.trim() === "" || likes === "0 lượt thích") {
+                    likeEl.style.display = "none";
+                } else {
+                    likeEl.style.display = "flex";
+                }
+            }
+
+            // xử lý comment
+            if (commentEl) {
+                const commentCount = parseInt(comments);
+                if (!commentCount || commentCount === 0) {
+                    commentEl.classList.add("hidden");
+                } else {
+                    commentEl.classList.remove("hidden");
+                    commentEl.innerHTML =
+                        `<a onclick="toggleComments('comment-section-${postId}')" style="cursor:pointer;">
+                            ${commentCount} bình luận
+                         </a>`;
+                }
+            }
+        }
+
+        // Gửi bình luận bằng AJAX
+        document.querySelectorAll(".comment-form").forEach(form => {
+            form.addEventListener("submit", async function (e) {
+                e.preventDefault();
+
+                const postId = parseInt(this.dataset.postId);
+                const content = this.querySelector("input[name='content']").value.trim();
+                if (!content) return;
+
+                const response = await fetch("/Post/Comment", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "RequestVerificationToken": getToken()
+                    },
+                    body: JSON.stringify({ postId: postId, content: content })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    const commentSection = document.getElementById(`comment-section-${postId}`);
+                    const commentsList = commentSection.querySelector(".mt-3.space-y-3");
+
+                    // render mới với nút Xóa
+                    commentsList.insertAdjacentHTML("beforeend", `
+                        <div class="flex items-start space-x-3">
+                            <img src="${data.avatarUrl}" class="w-10 h-10 rounded-full object-cover" />
+                            <div class="flex-1">
+                                <div class="bg-gray-100 rounded-lg px-3 py-2 inline-block">
+                                    <p class="font-semibold text-sm">${data.username}</p>
+                                    <p class="text-sm">${data.content}</p>
+                                </div>
+                                <p class="text-xs text-gray-600 ml-2 flex items-center space-x-2">
+                                    <span class="time-ago" data-time="${data.createdAt}"></span>
+                                    ${data.canDelete ? `
+                                        <button type="button"
+                                                class="text-red-600 text-xs hover:underline ml-2"
+                                                onclick="deleteComment(${data.commentId}, ${postId})">
+                                            Xóa
+                                        </button>` : ""}
+                                </p>
+                            </div>
+                        </div>
+                    `);
+
+                    updateTimes();
+
+                    // clear input
+                    this.querySelector("input[name='content']").value = "";
+
+                    // update count
+                    const commentEl = document.getElementById(`comment-count-${postId}`);
+                    if (commentEl) {
+                        commentEl.classList.remove("hidden");
+                        commentEl.innerHTML = `<a onclick="toggleComments('comment-section-${postId}')" style="cursor:pointer;">${data.comments} bình luận</a>`;
+                    }
+
+                    toggleMetaVisibility(postId, document.getElementById(`like-count-${postId}`).innerText, commentEl.innerText);
+                }
+            });
+        });
+
+        async function deleteComment(commentId, postId) {
+            if (!confirm("Bạn có chắc muốn xóa bình luận này?")) return;
+
+            const response = await fetch("/Post/DeleteComment", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "RequestVerificationToken": getToken()
+                },
+                body: JSON.stringify(commentId)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.success) {
+                    // Xóa phần tử bình luận khỏi DOM
+                    const commentEl = document.querySelector(
+                        `button[onclick="deleteComment(${commentId}, ${postId})"]`
+                    ).closest(".flex.items-start");
+                    commentEl.remove();
+
+                    // Cập nhật số lượng bình luận
+                    const commentCountEl = document.getElementById(`comment-count-${postId}`);
+                    if (commentCountEl) {
+                        if (data.comments > 0) {
+                            commentCountEl.classList.remove("hidden");
+                            commentCountEl.innerHTML = `<a onclick="toggleComments('comment-section-${postId}')" style="cursor:pointer;">${data.comments} bình luận</a>`;
+                        } else {
+                            commentCountEl.classList.add("hidden");
+                        }
+                    }
+                }
+            }
+        }
+
+        // Like
+        document.querySelectorAll(".reaction-btn").forEach(btn => {
+            btn.addEventListener("click", async function (e) {
+                e.preventDefault();
+
+                const form = this.closest("form");
+                const postId = parseInt(form.querySelector("input[name='postId']").value);
+
+                const response = await fetch("/Post/Like", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "RequestVerificationToken": getToken()
+                    },
+                    body: JSON.stringify(postId)
+                });
+
+                if (!response.ok) return;
+                const data = await response.json();
+
+                // Cập nhật hiển thị Like
+                const likeWrapper = document.getElementById(`like-wrapper-${postId}`);
+                const likeCountEl = document.getElementById(`like-count-${postId}`);
+
+                if (data.likes > 0) {
+                    likeWrapper.style.display = "flex";
+                    likeCountEl.innerText = data.showText;
+                } else {
+                    likeWrapper.style.display = "none";
+                    likeCountEl.innerText = "";
+                }
+
+                // Cập nhật trạng thái nút
+                const label = this.querySelector("span:last-child");
+                if (data.isLiked) {
+                    label.innerText = "Đã thích";
+                    this.classList.add("text-blue-600", "font-semibold");
+                    this.dataset.liked = "true";
+                } else {
+                    label.innerText = "Thích";
+                    this.classList.remove("text-blue-600", "font-semibold");
+                    this.dataset.liked = "false";
+                }
+
+                // Toggle visibility
+                const commentEl = document.getElementById(`comment-count-${postId}`);
+                toggleMetaVisibility(postId, likeCountEl.innerText, commentEl ? commentEl.innerText : "");
+            });
+        });
+
+        function previewFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const previewContainer = document.getElementById("preview-container");
+            const previewImg = document.getElementById("preview-img");
+            const previewVideo = document.getElementById("preview-video");
+
+            previewContainer.classList.remove("hidden");
+            previewImg.classList.add("hidden");
+            previewVideo.classList.add("hidden");
+
+            const url = URL.createObjectURL(file);
+
+            if (file.type.startsWith("image/")) {
+                previewImg.src = url;
+                previewImg.classList.remove("hidden");
+            } else if (file.type.startsWith("video/")) {
+                previewVideo.src = url;
+                previewVideo.classList.remove("hidden");
+            }
+        }
+
+        function openPostModal() {
+            document.getElementById("postModal").classList.remove("hidden");
+            document.getElementById("postModal").classList.add("flex");
+        }
+
+        function closePostModal() {
+            document.getElementById("postModal").classList.add("hidden");
+            document.getElementById("postModal").classList.remove("flex");
+        }
+
+        function timeAgo(date) {
+            const now = new Date();
+            const past = new Date(date);
+            const diff = Math.floor((now - past) / 1000); // giây
+
+            if (diff < 60) return "Vừa xong";
+            if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+            if (diff < 2592000) return `${Math.floor(diff / 86400)} ngày trước`;
+            if (diff < 31104000) return `${Math.floor(diff / 2592000)} tháng trước`;
+            return `${Math.floor(diff / 31104000)} năm trước`;
+        }
+
+        function updateTimes() {
+            document.querySelectorAll(".time-ago").forEach(el => {
+                const time = el.dataset.time;
+                if (time) {
+                    el.innerText = timeAgo(time);
+                }
+            });
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+            updateTimes();
+        });
+
+        setInterval(updateTimes, 60000);
+        // other
+        document.addEventListener('DOMContentLoaded', () => {
+            const customSelects = document.querySelectorAll('.custom-select');
+
+            customSelects.forEach(select => {
+                const displayed = select.querySelector('.select-displayed');
+                const optionsList = select.querySelector('.select-options');
+                const hiddenInput = select.querySelector('input[type="hidden"]');
+
+                // 1. Xử lý mở/đóng danh sách
+                displayed.addEventListener('click', () => {
+                    optionsList.classList.toggle('active');
+                });
+
+                // 2. Xử lý chọn giá trị
+                optionsList.querySelectorAll('li').forEach(option => {
+                    option.addEventListener('click', () => {
+                        const value = option.getAttribute('data-value');
+
+                        // Cập nhật input ẩn
+                        hiddenInput.value = value;
+
+                        // Cập nhật hiển thị (copy HTML của li)
+                        displayed.innerHTML = option.innerHTML;
+
+                        // Đóng danh sách
+                        optionsList.classList.remove('active');
+                    });
+                });
+
+                // Đóng khi click ra ngoài
+                document.addEventListener('click', (e) => {
+                    if (!select.contains(e.target)) {
+                        optionsList.classList.remove('active');
+                    }
+                });
+            });
+        });
+    </script>
+}

@@ -1,0 +1,170 @@
+@model SocialNetwork.Models.Post
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    ViewData["Title"] = "Chỉnh sửa bài viết";
+}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+<div class="max-w-2xl mx-auto mt-8 p-6 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700">
+    <h2 class="text-2xl font-bold text-gray-800 dark:text-white mb-6 flex items-center gap-3">
+        <i class="fa-solid fa-pen-to-square text-purple-500"></i> Chỉnh sửa bài viết
+    </h2>
+
+    <form asp-action="Edit" asp-controller="Post" method="post" enctype="multipart/form-data" id="editPostForm">
+        @Html.AntiForgeryToken()
+        <input type="hidden" name="id" value="@Model.PostId" />
+
+        <!-- Nội dung bài viết -->
+        <div class="mb-6">
+            <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2">Nội dung</label>
+            <textarea name="content"
+                      rows="6"
+                      class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600
+                             rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-transparent
+                             text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400
+                             resize-none transition-all"
+                      placeholder="Bạn đang nghĩ gì?">@Model.Content</textarea>
+        </div>
+
+        <!-- Quyền riêng tư -->
+        <div class="mb-6">
+            <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-lock text-gray-600 dark:text-gray-400"></i> Quyền riêng tư
+            </label>
+            <select name="visibility"
+                    class="w-full bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600
+                           rounded-lg px-4 py-3 focus:ring-2 focus:ring-purple-500 text-gray-900 dark:text-white
+                           cursor-pointer transition-all">
+                <option value="Public" selected="@(Model.Visibility == "Public")">
+                    Công khai
+                </option>
+                <option value="Friends" selected="@(Model.Visibility == "Friends")">
+                    Bạn bè
+                </option>
+                <option value="Private" selected="@(Model.Visibility == "Private")">
+                    Chỉ mình tôi
+                </option>
+            </select>
+        </div>
+
+        <!-- Hiển thị ảnh/video hiện tại -->
+        @if (!string.IsNullOrEmpty(Model.MediaUrl))
+        {
+            <div class="mb-6" id="currentMediaSection">
+                <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-3">Ảnh/Video hiện tại</label>
+                <div class="relative inline-block rounded-xl overflow-hidden shadow-md">
+                    @{
+                        var ext = System.IO.Path.GetExtension(Model.MediaUrl).ToLower();
+                    }
+                    @if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp")
+                    {
+                        <img src="@Model.MediaUrl" alt="Current media"
+                             class="max-w-full h-auto rounded-xl" id="currentMedia" />
+                    }
+                    else if (ext == ".mp4" || ext == ".webm" || ext == ".ogg")
+                    {
+                        <video controls class="max-w-full h-auto rounded-xl" id="currentMedia">
+                            <source src="@Model.MediaUrl" type="video/mp4" />
+                        </video>
+                    }
+
+                    <button type="button" onclick="removeCurrentMedia()"
+                            class="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white
+                                   rounded-full w-10 h-10 flex items-center justify-center shadow-xl
+                                   transform hover:scale-110 transition-all duration-200">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+                <input type="hidden" name="removeMedia" id="removeMediaInput" value="false" />
+            </div>
+        }
+
+        <!-- Upload ảnh/video mới -->
+        <div class="mb-8">
+            <label class="block text-gray-700 dark:text-gray-300 font-semibold mb-3 flex items-center gap-2">
+                <i class="fa-solid fa-image text-green-600"></i> Thay đổi ảnh/video
+            </label>
+            <div class="border-2 border-dashed border-gray-300 dark:border-gray-600
+                        rounded-xl p-8 text-center hover:border-purple-500 dark:hover:border-purple-400
+                        transition-all duration-300 bg-gray-50 dark:bg-gray-900/50">
+                <input type="file" name="media" id="mediaInput" accept="image/*,video/*"
+                       class="hidden" onchange="previewMedia(event)" />
+
+                <label for="mediaInput" class="cursor-pointer block">
+                    <i class="fa-solid fa-cloud-arrow-up text-5xl text-gray-400 dark:text-gray-500 mb-3"></i>
+                    <p class="text-gray-600 dark:text-gray-400 font-medium">
+                        Nhấn để chọn ảnh hoặc video mới
+                    </p>
+                    <p class="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                        Hỗ trợ JPG, PNG, GIF, MP4...
+                    </p>
+                </label>
+
+                <div id="mediaPreview" class="mt-6 hidden">
+                    <img id="previewImage" class="max-w-full h-auto rounded-xl shadow-lg mx-auto" />
+                    <video id="previewVideo" controls class="max-w-full h-auto rounded-xl shadow-lg mx-auto hidden"></video>
+                </div>
+            </div>
+        </div>
+
+        <!-- Buttons -->
+        <div class="flex gap-4">
+            <button type="submit"
+                    class="flex-1 bg-gradient-to-r from-blue-600 to-blue-600 hover:from-blue-700 hover:to-blue-700
+                           text-white font-bold py-4 rounded-xl shadow-lg hover:shadow-xl
+                           transform hover:-translate-y-1 transition-all duration-300 flex items-center justify-center gap-3">
+                <i class="fa-solid fa-floppy-disk"></i>
+                Lưu thay đổi
+            </button>
+            <a href="@Url.Action("Details", "Post", new { id = Model.PostId })"
+               class="flex-1 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600
+                      text-gray-800 dark:text-gray-200 font-semibold py-4 rounded-xl text-center
+                      transition-all duration-300">
+                Hủy
+            </a>
+        </div>
+    </form>
+</div>
+
+@section Scripts {
+    <script>
+        function removeCurrentMedia() {
+            document.getElementById('currentMediaSection').style.display = 'none';
+            document.getElementById('removeMediaInput').value = 'true';
+        }
+
+        function previewMedia(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const preview = document.getElementById('mediaPreview');
+            const previewImage = document.getElementById('previewImage');
+            const previewVideo = document.getElementById('previewVideo');
+
+            preview.classList.remove('hidden');
+
+            if (file.type.startsWith('image/')) {
+                previewImage.src = URL.createObjectURL(file);
+                previewImage.classList.remove('hidden');
+                previewVideo.classList.add('hidden');
+            } else if (file.type.startsWith('video/')) {
+                previewVideo.src = URL.createObjectURL(file);
+                previewVideo.classList.remove('hidden');
+                previewImage.classList.add('hidden');
+            }
+        }
+
+        // Validation trước khi submit
+        document.getElementById('editPostForm').addEventListener('submit', function (e) {
+            const content = document.querySelector('textarea[name="content"]').value.trim();
+            const hasNewMedia = document.getElementById('mediaInput').files.length > 0;
+            const hasCurrentMedia = document.getElementById('removeMediaInput').value === 'false' &&
+                document.getElementById('currentMediaSection')?.style.display !== 'none';
+
+            if (!content && !hasNewMedia && !hasCurrentMedia) {
+                e.preventDefault();
+                alert('Bài viết phải có nội dung hoặc ảnh/video!');
+            }
+        });
+    </script>
+}

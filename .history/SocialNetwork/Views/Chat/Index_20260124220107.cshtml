@@ -1,0 +1,1762 @@
+@{
+    ViewData["Title"] = "Nhắn tin";
+    Layout = "~/Views/Shared/_ChatLayout.cshtml";
+    var friends = ViewBag.Friends as List<SocialNetwork.Models.User>;
+    var convs = ViewBag.Conversations as List<dynamic>;
+    int? myId = ViewBag.MyUserId;
+}
+<div class="h-[calc(100dvh-4rem)] sm:h-[calc(100vh-8rem)] flex flex-col bg-gray-50 dark:bg-gray-900">
+    <!-- Main Chat Container -->
+    <div class="flex-1 flex overflow-hidden">
+        <!-- Left Sidebar - Conversations List -->
+        <div id="chatSidebar" class="w-full md:w-80 bg-white dark:bg-gray-800 border-r dark:border-gray-700 flex md:flex flex-col">
+            <!-- Sidebar Header -->
+            <div class="p-4 border-b dark:border-gray-700">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-xl font-bold text-gray-800 dark:text-white">Đoạn chat</h2>
+                    <div class="flex gap-2">
+                        <button onclick="openNewChatModal()" class="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition" title="Tin nhắn mới">
+                            <i class="fa-solid fa-pen-to-square text-gray-600 dark:text-gray-300"></i>
+                        </button>
+                        <button onclick="openCreateGroupModal()" class="w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 flex items-center justify-center transition" title="Tạo nhóm chat">
+                            <i class="fa-solid fa-user-group text-gray-600 dark:text-gray-300"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="relative">
+                    <input type="text" id="conversationSearchInput" placeholder="Tìm kiếm cuộc trò chuyện..." class="w-full rounded-full border border-gray-200 dark:border-gray-600 pl-10 pr-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none dark:bg-gray-700 dark:text-white dark:placeholder-gray-400" />
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-2 text-gray-400 text-sm"></i>
+                </div>  
+            </div>
+            <!-- Conversations List -->
+            <div id="conversationList" class="flex-1 overflow-y-auto overflow-x-hidden">
+            @foreach (var c in convs)
+            {
+                var isGroup = c.IsGroup;
+                var user = !isGroup ? friends.FirstOrDefault(f => f.UserId == c.OtherUserId) : null;
+                var name = isGroup ? c.GroupName : user?.FullName;
+                var avatar = isGroup 
+                    ? (string.IsNullOrEmpty(c.GroupAvatar) ? Url.Content("~/Uploads/default-group.png") : Url.Content($"~/Uploads/{c.GroupAvatar}"))
+                    : (user?.ImageUrl != null ? Url.Content($"~/Uploads/{user.ImageUrl}") : Url.Content("~/Uploads/default-avatar.png"));
+                
+                <div class="conv-item group flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition border-b dark:border-gray-700"
+                     data-convid="@c.Id"
+                     data-otherid="@c.OtherUserId"
+                     data-username="@name"
+                     data-isgroup="@isGroup.ToString().ToLower()"
+                     data-adminid="@c.GroupAdminId"
+                     onclick="handleConversationClick('@c.Id', '@c.OtherUserId', '@name', @isGroup.ToString().ToLower(), '@c.GroupAdminId')">
+                    <div class="relative flex-shrink-0">
+                        @if (!isGroup) {
+                             <img src="@avatar" class="w-14 h-14 rounded-full object-cover" />
+                        } else {
+                            <img src="@avatar" class="w-14 h-14 rounded-full object-cover" />
+                        }
+
+                        @if (!isGroup) {
+                            var onlineUserIds = ViewBag.OnlineUserIds as IEnumerable<int> ?? new List<int>();
+                            var isOnline = user != null && onlineUserIds.Contains(user.UserId);
+                            <span id="online-status-@user.UserId" class="absolute bottom-0 right-0 block w-3.5 h-3.5 rounded-full bg-green-500 ring-2 ring-white" style="display: @(isOnline ? "block" : "none")"></span>
+                        }
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate @(c.UnreadCount > 0 ? "font-extrabold text-gray-900 dark:text-white" : "")">@name</h3>
+                            <span class="text-[11px] text-gray-400 flex-shrink-0" id="time-@c.Id">
+                                @{
+                                    string timeStr = "";
+                                    if (c.LastMessage != null)
+                                    {
+                                        var lastMsgTime = ((DateTime)c.LastMessage.CreatedAt);
+                                        var diff = DateTime.Now - lastMsgTime;
+                                        
+                                        if (diff.TotalDays < 1)
+                                        {
+                                            timeStr = lastMsgTime.ToString("HH:mm");
+                                        }
+                                        else if (diff.TotalDays < 7)
+                                        {
+                                            timeStr = $"{(int)diff.TotalDays} ngày";
+                                        }
+                                        else if (diff.TotalDays < 30)
+                                        {
+                                            timeStr = $"{(int)(diff.TotalDays / 7)} tuần";
+                                        }
+                                        else if (diff.TotalDays < 365)
+                                        {
+                                            timeStr = $"{(int)(diff.TotalDays / 30)} tháng";
+                                        }
+                                        else
+                                        {
+                                            timeStr = $"{(int)(diff.TotalDays / 365)} năm";
+                                        }
+                                    }
+                                }
+                                @timeStr
+                            </span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate flex-1 @(c.UnreadCount > 0 ? "font-bold text-gray-900 dark:text-white" : "")" id="msg-@c.Id">
+                                @if (c.LastMessage != null)
+                                {
+                                    var content = c.LastMessage.Content ?? "";
+                                    var displayText = "";
+
+                                    if (content.StartsWith("[system]") && content.EndsWith("[/system]"))
+                                    {
+                                        // Tin nhắn hệ thống - chỉ hiển thị nội dung bên trong
+                                        displayText = content.Replace("[system]", "").Replace("[/system]", "");
+                                    }
+                                    else if (content.StartsWith("[img]") && content.EndsWith("[/img]"))
+                                    {
+                                        displayText = "đã gửi 1 ảnh";
+                                    }
+                                    else if (content.StartsWith("[video]") && content.EndsWith("[/video]"))
+                                    {
+                                        displayText = "đã gửi 1 video";
+                                    }
+                                    else if (content.StartsWith("[file]") && content.Contains("[/file]"))
+                                    {
+                                        // Lấy tên file từ [file]Tên file.ext|url[/file]
+                                        var parts = content.Split('|');
+                                        if (parts.Length > 0)
+                                        {
+                                            var namePart = parts[0].Substring(6); // bỏ [file]
+                                            displayText = "đã gửi 1 tệp";
+                                        }
+                                        else
+                                        {
+                                            displayText = "đã gửi 1 tệp";
+                                        }
+                                    }
+                                    else
+                                    {
+                                        displayText = content.Length > 50 ? content.Substring(0, 47) + "..." : content;
+                                    }
+
+                                    // Không thêm "Bạn:" cho tin nhắn hệ thống
+                                    if (content.StartsWith("[system]"))
+                                    {
+                                        <text>@displayText</text>
+                                    }
+                                    else if (c.LastMessage.SenderId == myId)
+                                    {
+                                        <text><strong>Bạn:</strong> @displayText</text>
+                                    }
+                                    else
+                                    {
+                                        <text>@displayText</text>
+                                    }
+                                }
+                                else
+                                {
+                                    <text>Không có tin nhắn</text>
+                                }
+                            </p>
+                            <span id="unread-@c.Id" class="bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 flex-shrink-0 @(c.UnreadCount > 0 ? "" : "hidden")">
+                                @(c.UnreadCount > 99 ? "99+" : c.UnreadCount)
+                            </span>
+                        </div>
+                    </div>
+                    <button onclick="deleteConversation(event, '@c.Id')" class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition absolute right-3 top-1/2 -translate-y-1/2" title="Xóa đoạn chat">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            }
+            </div>
+        </div>
+
+        <!-- Right Side - Chat Area -->
+        <div id="chatMain" class="hidden md:flex flex-1 bg-white dark:bg-gray-800 flex-col">
+            <!-- Chat Header -->
+            <div class="h-16 px-4 md:px-6 border-b dark:border-gray-700 flex items-center justify-between bg-white dark:bg-gray-800" id="chatHeader">
+                <div id="chatWith" class="flex items-center justify-between w-full">
+                    <div class="flex items-center gap-3">
+                        <button onclick="backToList()" class="md:hidden text-gray-600 dark:text-gray-300 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition">
+                            <i class="fa-solid fa-arrow-left text-lg"></i>
+                        </button>
+                        <span class="text-base md:text-lg font-semibold text-gray-500 dark:text-gray-300">Chọn một cuộc trò chuyện để bắt đầu</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <button id="groupInfoBtn" class="hidden w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition" onclick="showGroupInfo()" title="Thông tin nhóm">
+                            <i class="fa-solid fa-circle-info text-gray-600 dark:text-gray-300"></i>
+                        </button>
+                        <button id="videoCallBtn" class="hidden w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition" onclick="safeInitiateVideoCall(currentConversationId, currentOtherUserId, currentIsGroup)" title="Gọi video">
+                            <i class="fa-solid fa-video text-gray-600 dark:text-gray-300"></i>
+                        </button>
+                        <button id="leaveGroupBtn" class="hidden w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition" onclick="confirmLeaveGroup()" title="Rời nhóm">
+                            <i class="fa-solid fa-right-from-bracket text-red-500"></i>
+                        </button>
+                        <button id="disbandGroupBtn" class="hidden w-10 h-10 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition" onclick="confirmDisbandGroup()" title="Giải tán nhóm">
+                            <i class="fa-solid fa-trash text-red-600"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div id="messages" class="flex-1 overflow-y-auto px-6 py-4 bg-gray-50 dark:bg-gray-900 space-y-3"></div>
+
+            <!-- Image Preview Container -->
+            <div id="previewContainer" class="hidden px-4 py-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700">
+                <div class="relative inline-block">
+                    <img id="previewImage" class="h-20 rounded-lg border border-gray-300 dark:border-gray-600" />
+                    <button type="button" onclick="clearPreview()" class="absolute -top-2 -right-2 w-5 h-5 bg-gray-500 rounded-full text-white flex items-center justify-center hover:bg-gray-600 shadow-sm transition">
+                        <i class="fa-solid fa-xmark text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Message Input -->
+            <form id="sendForm" class="h-14 md:h-16 px-3 md:px-6 border-t dark:border-gray-700 bg-white dark:bg-gray-800 flex items-center gap-2 md:gap-3 relative" onsubmit="sendMessage(event); return false;">
+                <button type="button" class="w-8 h-8 md:w-9 md:h-9 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition text-gray-500 dark:text-gray-400" title="Emoji" onclick="toggleEmojiPicker()">
+                    <i class="fa-solid fa-face-smile text-sm md:text-lg"></i>
+                </button>
+                <button type="button" class="w-8 h-8 md:w-9 md:h-9 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-center transition text-gray-500 dark:text-gray-400" title="Đính kèm" onclick="triggerFile()">
+                    <i class="fa-solid fa-paperclip text-sm md:text-lg"></i>
+                </button>
+                <input id="messageInput" class="flex-1 border-0 bg-gray-100 dark:bg-gray-700 rounded-full px-3 md:px-5 py-2 text-sm md:text-base focus:ring-2 focus:ring-blue-500 focus:outline-none dark:text-white dark:placeholder-gray-400" placeholder="Nhập tin nhắn..." />
+                <input id="fileInput" type="file" class="hidden" onchange="handleFileSelected(event)" />
+                <partial name="_EmojiPicker" />
+                <button type="submit" class="w-8 h-8 md:w-9 md:h-9 rounded-full bg-blue-600 hover:bg-blue-700 flex items-center justify-center transition text-white">
+                    <i class="fa-solid fa-paper-plane text-sm md:text-base"></i>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+    <!-- 🔹 Modal xác nhận xóa -->
+    <div id="confirmationModal"
+         class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96 text-center shadow-lg">
+            <p class="text-lg font-semibold text-gray-800 mb-4">Xác nhận</p>
+            <p id="confirmMessage" class="text-gray-600 mb-6">
+                Bạn có chắc muốn xóa đoạn nhắn này?
+            </p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirmDelete"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                    Xóa
+                </button>
+                <button id="cancelDelete"
+                        class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition">
+                    Hủy
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal xác nhận giải tán nhóm -->
+    <div id="disbandGroupModal"
+         class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96 text-center shadow-lg">
+            <p class="text-lg font-semibold text-gray-800 mb-4">Giải tán nhóm</p>
+            <p class="text-gray-600 mb-6">
+                Bạn có chắc muốn giải tán nhóm này? Hành động này không thể hoàn tác và tất cả tin nhắn sẽ bị xóa.
+            </p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirmDisbandGroupBtn"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                    Giải tán
+                </button>
+                <button id="cancelDisbandGroupBtn"
+                        class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition">
+                    Hủy
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal xác nhận rời nhóm -->
+    <div id="leaveGroupModal"
+         class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white rounded-lg p-6 w-96 text-center shadow-lg">
+            <p class="text-lg font-semibold text-gray-800 mb-4">Rời nhóm</p>
+            <p class="text-gray-600 mb-6">
+                Bạn có chắc muốn rời khỏi nhóm này?
+            </p>
+            <div class="flex justify-center space-x-4">
+                <button id="confirmLeaveGroupBtn"
+                        class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition">
+                    Rời nhóm
+                </button>
+                <button id="cancelLeaveGroupBtn"
+                        class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition">
+                    Hủy
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- Modal: Cuộc gọi bị từ chối -->
+    <div id="callRejectedModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm animate-bounce-in">
+            <div class="text-6xl mb-4">
+                <i class="fa-solid fa-phone-slash text-red-500"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Cuộc gọi bị từ chối</h3>
+            <p class="text-gray-600 mb-6">Người dùng không muốn nhận cuộc gọi lúc này.</p>
+            <button onclick="closeCallRejectedModal()" class="px-6 py-3 bg-gray-600 text-white rounded-full hover:bg-gray-700 transition">
+                Đóng
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal: Cuộc gọi đã kết thúc -->
+    <div id="callEndedModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm animate-bounce-in">
+            <div class="text-6xl mb-4">
+                <i class="fa-solid fa-phone-slash text-orange-500"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Cuộc gọi đã kết thúc</h3>
+            <p class="text-gray-600 mb-6">Cuộc gọi video đã được kết thúc.</p>
+            <button onclick="closeCallEndedModal()" class="px-6 py-3 bg-gray-600 text-white rounded-full hover:bg-gray-700 transition">
+                Đóng
+            </button>
+        </div>
+    </div>
+    <!-- Modal Thông tin nhóm -->
+    <div id="groupInfoModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 flex flex-col max-h-[80vh]">
+            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                <h3 class="text-xl font-bold text-gray-800 dark:text-white">Thành viên nhóm</h3>
+                <button onclick="closeGroupInfo()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div id="groupMemberList" class="p-4 overflow-y-auto flex-1 space-y-3">
+                <!-- Members will be loaded here -->
+            </div>
+        </div>
+    </div>
+<!-- Modal Tạo nhóm chat -->
+<div id="createGroupModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4">
+        <div class="p-6 border-b dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xl font-bold text-gray-800 dark:text-white">Tạo nhóm chat mới</h3>
+                <button onclick="closeCreateGroupModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-6 max-h-96 overflow-y-auto">
+            <input type="text" id="groupNameInput" placeholder="Nhập tên nhóm..."
+                   class="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none dark:bg-gray-700 dark:text-white mb-4" />
+            <!-- Thanh tìm kiếm thành viên -->
+            <div class="relative mb-4">
+                <input type="text" id="memberSearchInput" placeholder="Tìm kiếm bạn bè..."
+                       class="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none dark:bg-gray-700 dark:text-white" />
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400"></i>
+            </div>
+            <!-- Danh sách thành viên (sẽ được lọc realtime) -->
+            <div id="memberList" class="space-y-2">
+                @foreach (var f in friends)
+                {
+                    <label class="flex items-center space-x-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition group">
+                        <input type="checkbox" value="@f.UserId" class="group-member-checkbox w-5 h-5 text-blue-600 rounded focus:ring-blue-500" />
+                        <img src="@(string.IsNullOrEmpty(f.ImageUrl) ? Url.Content("~/Uploads/default-avatar.png") : Url.Content($"~/Uploads/" + f.ImageUrl))"
+                             class="w-10 h-10 rounded-full object-cover" />
+                        <div class="flex-1">
+                            <span class="text-gray-800 dark:text-gray-200 font-medium">@f.FullName</span>
+                            <p class="text-xs text-gray-500">Nhấn để chọn</p>
+                        </div>
+                        <i class="fa-solid fa-check text-green-500 opacity-0 group-has-[:checked]:opacity-100 transition"></i>
+                    </label>
+                }
+            </div>
+        </div>
+
+        <div class="p-6 border-t dark:border-gray-700 flex justify-end gap-3">
+            <button onclick="closeCreateGroupModal()"
+                    class="px-6 py-2.5 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition">
+                Hủy
+            </button>
+            <button onclick="createGroup()"
+                    class="px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center gap-2">
+                <i class="fa-solid fa-users"></i>
+                Tạo nhóm
+            </button>
+        </div>
+    </div>
+</div>
+<!-- Modal Tin nhắn mới -->
+<div id="newChatModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md mx-4">
+        <div class="p-6 border-b dark:border-gray-700">
+            <div class="flex justify-between items-center">
+                <h3 class="text-xl font-bold text-gray-800 dark:text-white">Tin nhắn mới</h3>
+                <button onclick="closeNewChatModal()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+        </div>
+
+        <div class="p-6 max-h-96 overflow-y-auto">
+            <!-- Thanh tìm kiếm bạn bè -->
+            <div class="relative mb-4">
+                <input type="text" id="newChatSearchInput" placeholder="Tìm kiếm bạn bè..."
+                       class="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none dark:bg-gray-700 dark:text-white" />
+                <i class="fa-solid fa-magnifying-glass absolute left-3 top-3.5 text-gray-400"></i>
+            </div>
+            <!-- Danh sách bạn bè -->
+            <div id="newChatFriendList" class="space-y-2">
+                @foreach (var f in friends)
+                {
+                    <div class="friend-item flex items-center gap-3 p-3 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition"
+                         data-userid="@f.UserId"
+                         data-username="@f.FullName"
+                         onclick="startChatWithFriend(@f.UserId, '@f.FullName')">
+                        <img src="@(string.IsNullOrEmpty(f.ImageUrl) ? Url.Content("~/Uploads/default-avatar.png") : Url.Content($"~/Uploads/" + f.ImageUrl))"
+                             class="w-12 h-12 rounded-full object-cover" />
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-800 dark:text-gray-200">@f.FullName</div>
+                            <p class="text-xs text-gray-500 dark:text-gray-400">Nhấn để bắt đầu chat</p>
+                        </div>
+                        <i class="fa-solid fa-comment text-blue-500"></i>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+<!-- Video Call Modal -->
+<partial name="_VideoCallModal" />
+@section Scripts {
+    <script>
+        // Safe Video Call Function - Kiểm tra hỗ trợ trước khi gọi
+        function safeInitiateVideoCall(conversationId, otherUserId, isGroup = false) {
+            // Kiểm tra getUserMedia API
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                alert("Trình duyệt của bạn không hỗ trợ gọi video. Vui lòng sử dụng trình duyệt hiện đại như Chrome, Firefox, Safari hoặc Edge.");
+                return;
+            }
+            
+            // Kiểm tra HTTPS hoặc localhost
+            const isSecure = location.protocol === 'https:' || 
+                            location.hostname === 'localhost' || 
+                            location.hostname === '127.0.0.1';
+            
+            if (!isSecure) {
+                alert("Tính năng gọi video chỉ hoạt động trên HTTPS hoặc localhost. Vui lòng truy cập qua HTTPS để sử dụng tính năng này.");
+                return;
+            }
+            
+            // Gọi function gốc nếu được hỗ trợ
+            if (typeof initiateVideoCall === 'function') {
+                initiateVideoCall(conversationId, otherUserId, isGroup);
+            } else {
+                console.error('initiateVideoCall function not found');
+                alert("Lỗi: Không thể khởi tạo cuộc gọi video");
+            }
+        }
+
+        // ============================================
+        // TIME FORMATTING HELPERS
+        // ============================================
+        function formatDetailTime(dateStr) {
+            if (!dateStr) return "";
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return "";
+            
+            const now = new Date();
+            const isToday = date.getDate() === now.getDate() &&
+                            date.getMonth() === now.getMonth() &&
+                            date.getFullYear() === now.getFullYear();
+            
+            if (isToday) {
+                return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            } else {
+                return date.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+            }
+        }
+
+        function formatRelativeTime(dateStr) {
+            if (!dateStr) return "";
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return "";
+            
+            const now = new Date(); 
+            const diffMs = now - date; 
+            const diffSeconds = Math.floor(diffMs / 1000);
+            
+            // Logic matching Server Side C#
+            // < 1 day (specifically "Today"): HH:mm
+            const isToday = date.getDate() === now.getDate() &&
+                            date.getMonth() === now.getMonth() &&
+                            date.getFullYear() === now.getFullYear();
+                            
+            if (isToday) {
+                 return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+            }
+
+            const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 1) return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }); // Fallback for transition
+            if (diffDays < 7) return `${diffDays} ngày`;
+            if (diffDays < 30) return `${Math.floor(diffDays / 7)} tuần`;
+            if (diffDays < 365) return `${Math.floor(diffDays / 30)} tháng`;
+            return `${Math.floor(diffDays / 365)} năm`;
+        }
+        
+        const myId = @((myId ?? 0));
+        const friends = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(friends));
+        
+        // LAST ACTIVE LOGIC
+        // Convert C# Dictionary to JS Map/Object
+        var lastActiveTimes = @Html.Raw(Json.Serialize(ViewBag.LastActiveTimes ?? new {}));
+        var onlineUserIds = @Html.Raw(Json.Serialize(ViewBag.OnlineUserIds ?? new List<int>()));
+
+        function calculateLastActive(userId) {
+            const id = parseInt(userId);
+             // 1. Check Login
+            if (onlineUserIds.includes(id)) {
+                return '<p class="text-xs text-green-500 font-medium">Đang hoạt động</p>';
+            }
+            
+            // 2. Check Last Active
+            var timeStr = lastActiveTimes[id] || lastActiveTimes["" + id];
+            
+            if (!timeStr) {
+                return ''; 
+            }
+
+            var lastActive = new Date(timeStr);
+            if (isNaN(lastActive.getTime())) return ''; 
+
+            var diff = new Date() - lastActive; // diff in ms
+            var minutes = Math.floor(diff / 60000);
+            
+            if (minutes < 1) return '<p class="text-xs text-gray-400">Vừa mới truy cập</p>';
+            if (minutes < 60) return `<p class="text-xs text-gray-400">Hoạt động ${minutes} phút trước</p>`;
+            
+            var hours = Math.floor(minutes / 60);
+            if (hours < 24) return `<p class="text-xs text-gray-400">Hoạt động ${hours} giờ trước</p>`;
+            
+            var days = Math.floor(hours / 24);
+            return `<p class="text-xs text-gray-400">Hoạt động ${days} ngày trước</p>`;
+        }
+        let currentConversationId = null;
+        let currentOtherUserId = null;
+        let currentIsGroup = false;
+        const messageAudio = new Audio('/sounds/newmessenge.mp3');
+        // ============================================
+        // 2. SIGNALR CONNECTION SETUP
+        // ============================================
+        window.chatConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/chatHub")
+            .withAutomaticReconnect()
+            .build();
+        const chatConnection = window.chatConnection;
+        chatConnection.start().then(() => { 
+            const conversationId = '@(ViewBag.SelectedConversationId ?? "0")';
+            const otherUserId = '@(ViewBag.OtherUserId ?? "0")';
+            const isGroup = @((ViewBag.IsGroup as bool? ?? false).ToString().ToLower());
+            
+            if (conversationId && conversationId !== "0" && otherUserId && otherUserId !== "0") {
+                openConversation(conversationId, otherUserId, null, isGroup);
+            } else {
+                // Đảm bảo nút ẩn khi không có conversation
+                updateVideoCallButton();
+            }
+            // ✅ Sắp xếp lại danh sách theo thứ tự đã lưu (sau khi load xong)
+            restoreConversationOrder();
+            // 🟢 SYNC: Lấy danh sách online mới nhất từ server
+            chatConnection.invoke("GetOnlineUsers").then((onlineIds) => {
+                onlineIds.forEach(id => {
+                    const statusEl = document.getElementById(`online-status-${id}`);
+                    if (statusEl) statusEl.style.display = "block";
+                });
+            }).catch(err => console.error("GetOnlineUsers Error: ", err));
+        }).catch(err => console.error("SignalR Connection Error: ", err));
+        chatConnection.onclose(() => {
+            console.log("Connection closed. Reconnecting...");
+            chatConnection.start().catch(err => console.error("Reconnection Error: ", err));
+        });
+        // ============================================
+        // 3. SIGNALR EVENT LISTENERS
+        // ============================================
+        // 3.1 Message Events
+        
+        // Listen for User Status
+        chatConnection.on("UserOnline", function (userId) {
+            // Update Array
+            if (!onlineUserIds.includes(userId)) {
+                onlineUserIds.push(userId);
+            }
+            // Remove from Last Active (since online)
+            delete lastActiveTimes[userId];
+
+            // Update UI (Green dot)
+            const dot = document.getElementById(`online-status-${userId}`);
+            if (dot) dot.style.display = "block";
+
+            // Update Header if chatting with this user
+            if (currentOtherUserId == userId && !currentIsGroup) {
+                 const statusDiv = document.querySelector("#chatWith .flex.items-center.gap-3 div");
+                 if (statusDiv) {
+                     // Find the <p> tag and update it, or add it
+                     let p = statusDiv.querySelector("p:not(.text-gray-800)"); // Avoid changing naming if any
+                     // Better selector: look for last p
+                     const ps = statusDiv.querySelectorAll("p");
+                     // Typically usage: h2 is name, last p is status
+                     
+                     // If we used calculateLastActive logic, it inserts a <p>.
+                     // Let's retry simple logic:
+                     let statusP = statusDiv.querySelector(".text-green-500, .text-gray-400");
+                     
+                     if (!statusP) {
+                         statusP = document.createElement("p");
+                         statusDiv.appendChild(statusP);
+                     }
+                     statusP.textContent = "Đang hoạt động";
+                     statusP.className = "text-xs text-green-500 font-medium";
+                 }
+            }
+        });
+
+        chatConnection.on("UserOffline", function (userId) {
+             // Update Array
+            onlineUserIds = onlineUserIds.filter(id => id !== userId);
+            
+            // Set Last Active to NOW
+            lastActiveTimes[userId] = new Date().toISOString(); 
+
+            // Update UI (Green dot)
+            const dot = document.getElementById(`online-status-${userId}`);
+            if (dot) dot.style.display = "none";
+            
+             // Update Header if chatting with this user
+            if (currentOtherUserId == userId && !currentIsGroup) {
+                 const statusDiv = document.querySelector("#chatWith .flex.items-center.gap-3 div");
+                 if (statusDiv) {
+                     let statusP = statusDiv.querySelector(".text-green-500, .text-gray-400");
+                     if (!statusP) {
+                         statusP = document.createElement("p");
+                         statusDiv.appendChild(statusP);
+                     }
+                     statusP.textContent = "Vừa mới truy cập";
+                     statusP.className = "text-xs text-gray-400";
+                 }
+            }
+        });
+
+        // 🟢 REALTIME: Messages Read (Seen Status)
+        chatConnection.on("MessagesRead", (data) => {
+            // data: { conversationId, readerId, lastReadMessageId }
+            if (currentConversationId == data.conversationId) {
+                // Update visible messages statuses
+                // Change all "Đã gửi" to "Đã xem" for my messages
+                const myMessages = document.querySelectorAll('.message-status'); 
+                myMessages.forEach(el => {
+                    if (el.textContent === "Đã gửi") {
+                        el.textContent = "Đã xem";
+                    }
+                });
+            }
+        });
+
+        // REALTIME: Nhận tin nhắn từ người khác
+       chatConnection.on("ReceiveMessage", (msg) => {
+        const convId = msg.conversationId;
+        const senderId = msg.senderId;
+
+        // === Tạo mới nếu chưa có cuộc chat ===
+        let convEl = document.querySelector(`.conv-item[data-convid='${convId}']`);
+        if (!convEl) {
+            let name = "";
+            let avatar = "";
+            let otherId = senderId;
+            const isGroup = msg.isGroup || false;
+            const groupAdminId = msg.groupAdminId || 0;
+
+            if (isGroup) {
+                name = msg.groupName || "Nhóm chat";
+                avatar = msg.groupAvatar ? `/Uploads/${msg.groupAvatar}` : `/Uploads/default-group.png`;
+                otherId = 0; 
+            } else {
+                const friend = friends.find(f => f.UserId == senderId);
+                if (!friend) return;
+                name = friend.FullName;
+                avatar = friend.ImageUrl ? `/Uploads/${friend.ImageUrl}` : `/Uploads/default-avatar.png`;
+            }
+
+            const newItem = document.createElement("div");
+            newItem.className = "conv-item group flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition border-b dark:border-gray-700";
+            newItem.dataset.convid = convId;
+            newItem.dataset.otherid = otherId;
+            newItem.dataset.username = name;
+            newItem.dataset.isgroup = isGroup;
+            newItem.dataset.adminid = groupAdminId;
+            
+            newItem.onclick = () => handleConversationClick(convId, otherId, name, isGroup, groupAdminId);
+
+            newItem.innerHTML = `
+                <div class="relative flex-shrink-0">
+                    <img src="${avatar}" class="w-14 h-14 rounded-full object-cover" />
+                    ${!isGroup ? '<span class="absolute bottom-0 right-0 block w-3.5 h-3.5 rounded-full bg-green-500 ring-2 ring-white"></span>' : ''}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex items-center justify-between mb-1">
+                        <h3 class="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">${name}</h3>
+                        <span class="text-[11px] text-gray-400 flex-shrink-0" id="time-${convId}">
+                        <span class="text-[11px] text-gray-400 flex-shrink-0" id="time-${convId}">
+                            ${formatRelativeTime(msg.createdAt)}
+                        </span>
+                        </span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <p class="text-xs text-gray-500 dark:text-gray-400 truncate flex-1" id="msg-${convId}">${msg.content}</p>
+                        <span id="unread-${convId}" class="hidden bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 flex-shrink-0">0</span>
+                    </div>
+                </div>
+                <button onclick="deleteConversation(event, '${convId}')"
+                        class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition absolute right-3 top-1/2 -translate-y-1/2" title="Xóa đoạn chat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            `;
+
+            document.getElementById("conversationList").prepend(newItem);
+            const order = Array.from(document.getElementById("conversationList").children).map(el => el.dataset.convid);
+            localStorage.setItem("conversationOrder", JSON.stringify(order));
+        }
+        // Hàm chuyển đổi content thành text hiển thị đẹp
+
+        // === Cập nhật tin nhắn cuối + thời gian ===
+        const lastMsgEl = document.getElementById(`msg-${convId}`);
+        const timeEl = document.getElementById(`time-${convId}`);
+        const unreadBadge = document.getElementById(`unread-${convId}`);
+        const convItem = document.querySelector(`.conv-item[data-convid='${convId}']`);
+
+       if (lastMsgEl) {
+    const isMine = senderId == myId;
+    const isSystemMsg = msg.content && msg.content.startsWith("[system]");
+    lastMsgEl.innerHTML = formatLastMessageContent(msg.content, isMine);
+}
+        if (timeEl) {
+            timeEl.textContent = formatRelativeTime(msg.createdAt);
+        }
+
+        // === FIX: Play sound for ALL messages from others, even if chat is open ===
+        const isSystemMsg = msg.content && msg.content.startsWith("[system]");
+        
+        if (senderId != myId && !isSystemMsg) {
+             // Play sound always
+            messageAudio.currentTime = 0;
+            messageAudio.play().catch(e => console.log("Audio play failed:", e));
+
+            // Only update badge/bold if NOT current conversation
+            if (convId != currentConversationId) {
+                // In đậm tên + tin cuối
+                if (convItem) {
+                    convItem.querySelector(".font-semibold")?.classList.add("font-extrabold", "text-gray-900", "dark:text-white");
+                    convItem.querySelector(".text-xs")?.classList.add("font-bold", "text-gray-900", "dark:text-white");
+                }
+
+                // Tăng badge
+                let count = (parseInt(unreadBadge.textContent) || 0) + 1;
+                unreadBadge.textContent = count > 99 ? "99+" : count;
+                unreadBadge.classList.remove("hidden");
+            }
+        }
+
+        // === Nếu đang mở đúng cuộc chat này → thêm tin + đánh dấu đã đọc ===
+        if (convId == currentConversationId) {
+            appendMessage(msg, senderId);
+            scrollMessages();
+            markConversationAsRead(convId); // Đúng chỗ rồi!
+        }
+
+        // Đưa lên đầu
+        moveConversationToTop(convId);
+    });
+        // 🗑 Lắng nghe xóa tin nhắn (thu hồi)
+        chatConnection.on("MessageDeleted", (p) => {
+            const el = document.querySelector(`[data-msgid="${p.messageId}"]`);
+            if (el) el.closest('.flex')?.remove();
+        });
+
+        // 🟢 REALTIME: Online Status
+        chatConnection.on("UserOnline", (userId) => {
+            const statusEl = document.getElementById(`online-status-${userId}`);
+            if (statusEl) statusEl.style.display = "block";
+        });
+        chatConnection.on("UserOffline", (userId) => {
+            const statusEl = document.getElementById(`online-status-${userId}`);
+            if (statusEl) statusEl.style.display = "none";
+        });
+
+        // 🔴 GROUP EVENTS
+        chatConnection.on("GroupDeleted", (conversationId) => {
+            // Xóa khỏi danh sách
+            const el = document.querySelector(`.conv-item[data-convid='${conversationId}']`);
+            if (el) el.remove();
+
+            // Nếu đang mở chat này -> clear
+            if (currentConversationId == conversationId) {
+                document.getElementById("messages").innerHTML = "";
+                document.getElementById("chatWith").querySelector('.flex.items-center.gap-3').innerHTML = '<span class="text-lg font-semibold text-gray-500 dark:text-gray-300">Cuộc trò chuyện đã bị xóa</span>';
+                currentConversationId = null;
+                document.getElementById("videoCallBtn").classList.add("hidden");
+                document.getElementById("leaveGroupBtn").classList.add("hidden");
+            }
+            alert("Nhóm chat đã bị giải tán bởi trưởng nhóm.");
+        });
+
+        chatConnection.on("UserLeftGroup", (data) => {
+            // data: { conversationId, userId, userName, isSelf }
+            
+            // Nếu là chính mình rời nhóm
+            if (data.isSelf) {
+                // Xóa conversation khỏi danh sách
+                const el = document.querySelector(`.conv-item[data-convid='${data.conversationId}']`);
+                if (el) el.remove();
+
+                // Nếu đang mở chat này -> clear và thông báo
+                if (currentConversationId == data.conversationId) {
+                    document.getElementById("messages").innerHTML = "";
+                    document.getElementById("chatWith").querySelector('.flex.items-center.gap-3').innerHTML = '<span class="text-lg font-semibold text-gray-500 dark:text-gray-300">Bạn đã rời khỏi nhóm</span>';
+                    currentConversationId = null;
+                    document.getElementById("videoCallBtn").classList.add("hidden");
+                    document.getElementById("leaveGroupBtn").classList.add("hidden");
+                    document.getElementById("groupInfoBtn").classList.add("hidden");
+                    document.getElementById("disbandGroupBtn").classList.add("hidden");
+                }
+            } else {
+                // Người khác rời nhóm
+                if (currentConversationId == data.conversationId) {
+                    // Cập nhật danh sách thành viên nếu đang mở modal
+                    const modal = document.getElementById("groupInfoModal");
+                    if (modal && !modal.classList.contains("hidden")) {
+                        const memberEl = document.getElementById(`member-${data.userId}`);
+                        if (memberEl) memberEl.remove();
+                    }
+                }
+            }
+        });
+        // ============================================
+        // 4. CONVERSATION MANAGEMENT
+        // ============================================
+        async function openConversation(conversationId, otherUserId, name, isGroup, adminId) {
+            currentConversationId = conversationId;
+            currentOtherUserId = otherUserId;
+            currentIsGroup = isGroup;
+            currentAdminId = adminId || 0;
+            const res = await fetch(`/Chat/GetMessages?conversationId=${conversationId}`);
+            const data = await res.json();
+            if (!data.success) return;
+            const container = document.getElementById("messages");
+            container.innerHTML = "";
+            const hidden = getHiddenMessageSet();
+            data.data.forEach(m => {
+                const mid = m.Id || m.id || m.ID;
+                if (!hidden.has(mid)) appendMessage(m, m.senderId);
+            });
+
+            // Determine Avatar and Name
+            let avatar = "/Uploads/default-avatar.png";
+            let displayName = name || "Unknown";
+            let profileLink = "#";
+
+            if (isGroup) {
+                avatar = "/Uploads/default-group.png"; 
+                profileLink = "#"; 
+            } else {
+                const friend = friends.find(f => f.UserId == otherUserId);
+                if (friend) {
+                    avatar = friend.ImageUrl ? `/Uploads/${friend.ImageUrl}` : `/Uploads/default-avatar.png`;
+                    displayName = friend.FullName;
+                    profileLink = `/User/Profile/${friend.UserId}`;
+                }
+            }
+
+            const chatWith = document.getElementById("chatWith");
+            // Chỉ cập nhật phần bên trái (div đầu tiên), giữ nguyên nút video call bên phải
+            const leftPart = chatWith.querySelector('.flex.items-center.gap-3');
+            if (leftPart) {
+                leftPart.innerHTML = `
+                    <button onclick="backToList()" class="md:hidden text-gray-600 dark:text-gray-300 p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition mr-2">
+                        <i class="fa-solid fa-arrow-left text-lg"></i>
+                    </button>
+                    <a href="${profileLink}" class="flex items-center gap-3 hover:opacity-90 transition-all group">
+                        <img src="${avatar}" 
+                             class="w-8 h-8 md:w-10 md:h-10 rounded-full object-cover" />
+                        <div>
+                            <h2 class="text-sm md:text-base font-semibold text-gray-800 dark:text-white">
+                                ${displayName}
+                            </h2>
+                            ${!isGroup ? calculateLastActive(otherUserId) : ''}
+                        </div>
+                    </a>
+                `;
+            }
+            const convEl = document.querySelector(`.conv-item[data-convid='${conversationId}']`);
+            document.querySelectorAll('.conv-item').forEach(i => i.classList.remove("bg-blue-50", "dark:bg-gray-700"));
+            if (convEl) convEl.classList.add("bg-blue-50", "dark:bg-gray-700");
+            scrollMessages();
+            markConversationAsRead(conversationId);
+            // ✅ Gọi API đánh dấu tin nhắn đã đọc
+            await fetch("/Chat/MarkAsRead", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(parseInt(conversationId))
+            }).then(res => res.json())
+                .then(data => {
+                    if (data.success && data.totalUnread !== undefined) {
+                        const messageCount = document.getElementById("message-count");
+                        if (messageCount) {
+                            messageCount.textContent = data.totalUnread > 99 ? "99+" : data.totalUnread;
+                            messageCount.style.display = data.totalUnread > 0 ? "flex" : "none";
+                        }
+                    }
+                });
+            // ✅ Cập nhật nút gọi video
+            updateVideoCallButton();
+
+            // ✅ Cập nhật nút Thông tin nhóm
+            const infoBtn = document.getElementById("groupInfoBtn");
+            if (infoBtn) {
+                if (isGroup) infoBtn.classList.remove("hidden");
+                else infoBtn.classList.add("hidden");
+            }
+
+            // ✅ Cập nhật nút Rời nhóm
+            const leaveBtn = document.getElementById("leaveGroupBtn");
+            if (leaveBtn) {
+                // Hiển thị nút rời nhóm nếu là group
+                if (isGroup) {
+                    leaveBtn.classList.remove("hidden");
+                } else {
+                    leaveBtn.classList.add("hidden");
+                }
+            }
+            
+            // ✅ Cập nhật nút Giải tán nhóm
+            const disbandBtn = document.getElementById("disbandGroupBtn");
+            if (disbandBtn) {
+                // Chỉ hiện nếu là group VÀ mình là admin
+                if (isGroup && currentAdminId == myId) {
+                    disbandBtn.classList.remove("hidden");
+                } else {
+                    disbandBtn.classList.add("hidden");
+                }
+            }
+            
+            // Mobile: Show chat, hide sidebar
+            const sidebar = document.getElementById("chatSidebar");
+            sidebar.classList.add("hidden");
+            sidebar.classList.remove("flex"); // Force remove flex
+            
+            const chatMain = document.getElementById("chatMain");
+            chatMain.classList.remove("hidden");
+            chatMain.classList.add("flex");
+        }
+        
+        function backToList() {
+            const sidebar = document.getElementById("chatSidebar");
+            sidebar.classList.remove("hidden");
+            sidebar.classList.add("flex"); // Restore flex
+
+            const chatMain = document.getElementById("chatMain");
+            chatMain.classList.add("hidden");
+            chatMain.classList.remove("flex");
+        }
+        async function handleConversationClick(conversationId, otherUserId, name, isGroup, adminId) {
+            if (conversationId && conversationId !== "0" && conversationId !== "null") {
+                await openConversation(conversationId, otherUserId, name, isGroup, adminId);
+            } else {
+                // Không có conversationId → tìm xem đã có chưa, nếu chưa thì tạo mới
+                const existing = document.querySelector(`.conv-item[data-otherid='${otherUserId}']`);
+                if (existing) {
+                    const convId = existing.dataset.convid;
+                    const adminId = existing.dataset.adminid;
+                    await openConversation(convId, otherUserId, name, isGroup, adminId);
+                } else {
+                    await startChat(otherUserId);
+                }
+            }
+        }
+        async function markConversationAsRead(convId) {
+            const unreadBadge = document.getElementById(`unread-${convId}`);
+            const convItem = document.querySelector(`.conv-item[data-convid='${convId}']`);
+
+            if (unreadBadge) {
+                unreadBadge.classList.add("hidden");
+                unreadBadge.textContent = "0";
+            }
+            if (convItem) {
+                convItem.classList.remove("font-extrabold");
+                convItem.querySelectorAll("div").forEach(el => {
+                    if (el.classList.contains("font-semibold")) el.classList.remove("font-extrabold", "text-gray-900", "dark:text-white");
+                    if (el.classList.contains("text-sm")) el.classList.remove("text-gray-900", "dark:text-white");
+                    // Fix: Remove bold from message preview as well
+                    if (el.classList.contains("text-xs")) {
+                        el.classList.remove("font-bold", "text-gray-900", "dark:text-white");
+                    }
+                });
+            }
+
+            // Gọi API đánh dấu đã đọc và cập nhật badge ở header
+            await fetch("/Chat/MarkAsRead", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(parseInt(convId))
+            }).then(res => res.json())
+                .then(data => {
+                    if (data.success && data.totalUnread !== undefined) {
+                        const messageCount = document.getElementById("message-count");
+                        if (messageCount) {
+                            messageCount.textContent = data.totalUnread > 99 ? "99+" : data.totalUnread;
+                            messageCount.style.display = data.totalUnread > 0 ? "flex" : "none";
+                        }
+                    }
+                });
+        }
+        function moveConversationToTop(conversationId) {
+            const convEl = document.querySelector(`.conv-item[data-convid='${conversationId}']`);
+            if (convEl) {
+                const parent = document.getElementById("conversationList");
+                parent.prepend(convEl);
+                // Lưu thứ tự mới vào localStorage
+                const order = Array.from(parent.children).map(el => el.dataset.convid);
+                localStorage.setItem("conversationOrder", JSON.stringify(order));
+            }
+        }
+        function restoreConversationOrder() {
+            const savedOrder = JSON.parse(localStorage.getItem("conversationOrder") || "[]");
+            if (savedOrder.length === 0) return;
+            const parent = document.getElementById("conversationList");
+            const items = Array.from(parent.children);
+            // Lặp ngược để prepend đúng thứ tự
+            [...savedOrder].reverse().forEach(id => {
+                const el = items.find(x => x.dataset.convid === id);
+                if (el) parent.prepend(el);
+            });
+        }
+        // ============================================
+        // 5. MESSAGE HANDLING
+        // ============================================
+        let pendingFile = null;
+
+        function clearPreview() {
+            pendingFile = null;
+            document.getElementById("previewContainer").classList.add("hidden");
+            document.getElementById("previewImage").src = "";
+            document.getElementById("fileInput").value = "";
+        }
+
+        async function sendMessage(e) {
+            e.preventDefault();
+            const txt = document.getElementById("messageInput");
+            if (!currentConversationId) return;
+            const content = txt.value.trim();
+            
+            // 1. Send File if exists
+            if (pendingFile) {
+                await uploadAndSendFile(pendingFile);
+                clearPreview();
+            }
+
+            // 2. Send Text if exists
+            if (!content) return;
+            
+            try {
+                await chatConnection.invoke("SendMessage", parseInt(currentConversationId), content);
+                txt.value = "";
+                const lastMsgEl = document.getElementById(`msg-${currentConversationId}`);
+                const timeEl = document.getElementById(`time-${currentConversationId}`);
+                if (lastMsgEl) lastMsgEl.innerHTML = `<strong>Bạn:</strong> ${content}`;
+                if (timeEl) timeEl.textContent = formatDetailTime(new Date());
+                moveConversationToTop(currentConversationId);
+            } catch (err) {
+                console.error("Send Message Error: ", err);
+                alert("Lỗi khi gửi tin nhắn: " + err.message);
+            }
+        }
+        function appendMessage(m, senderId) {
+            // Check for system message
+            if (m.content && m.content.startsWith("[system]") && m.content.endsWith("[/system]")) {
+                const sysContent = m.content.replace("[system]", "").replace("[/system]", "");
+                const outer = document.createElement("div");
+                outer.className = "flex justify-center my-2";
+                outer.innerHTML = `<span class="text-xs text-gray-500 bg-gray-200 dark:bg-gray-700 px-2 py-1 rounded-full">${sysContent}</span>`;
+                document.getElementById("messages").appendChild(outer);
+                return;
+            }
+
+            const outer = document.createElement("div");
+            outer.className = senderId == myId ? "flex justify-end" : "flex justify-start";
+            const isMine = senderId == myId;
+            let contentHtml = m.content;
+            let isMedia = false;
+            // Render ảnh/file/video nếu là nội dung đặc biệt
+            if (typeof contentHtml === 'string') {
+                const imgMatch = contentHtml.match(/^\[img\](.*)\[\/img\]$/i);
+                const videoMatch = contentHtml.match(/^\[video\](.*)\[\/video\]$/i);
+                const fileMatch = contentHtml.match(/^\[file\](.*)\|(.*)\[\/file\]$/i);
+                if (imgMatch) {
+                    isMedia = true;
+                    const url = imgMatch[1];
+                    contentHtml = `<img src="${url}" class="max-w-xs rounded-lg border cursor-pointer hover:opacity-95 transition" onclick="window.open('${url}', '_blank')" />`;
+                } else if (videoMatch) {
+                    isMedia = true;
+                    const url = videoMatch[1];
+                    contentHtml = `<video src="${url}" controls class="max-w-xs rounded-lg border bg-black"></video>`;
+                } else if (fileMatch) {
+                    const name = fileMatch[1];
+                    const url = fileMatch[2];
+                    const ext = name.split('.').pop().toLowerCase();
+                    let iconClass = "fa-solid fa-file text-gray-500";
+                    if (['doc', 'docx'].includes(ext)) iconClass = "fa-solid fa-file-word text-blue-600";
+                    else if (['xls', 'xlsx'].includes(ext)) iconClass = "fa-solid fa-file-excel text-green-600";
+                    else if (['ppt', 'pptx'].includes(ext)) iconClass = "fa-solid fa-file-powerpoint text-red-600";
+                    else if (['pdf'].includes(ext)) iconClass = "fa-solid fa-file-pdf text-red-500";
+                    else if (['zip', 'rar'].includes(ext)) iconClass = "fa-solid fa-file-zipper text-yellow-600";
+                    // File hiển thị dạng thẻ gọn gàng
+                    contentHtml = `
+                                        <a href="${url}" target="_blank" class="flex items-center gap-3 min-w-[200px] group">
+                                            <div class="w-10 h-10 flex items-center justify-center bg-gray-50 rounded-lg group-hover:bg-white transition-colors">
+                                                <i class="${iconClass} text-2xl"></i>
+                                            </div>
+                                            <div class="flex flex-col overflow-hidden">
+                                                <span class="text-sm font-medium truncate w-full text-left group-hover:underline ${isMine ? 'text-white' : 'text-gray-800'}">${name}</span>
+                                                <span class="text-[10px] text-left ${isMine ? 'text-blue-100' : 'text-gray-400'}">Nhấn để tải về</span>
+                                            </div>
+                                        </a>`;
+                } else {
+                    contentHtml = contentHtml.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                }
+            }
+            const msgId = m.id || m.Id || m.ID || '';
+            // Nếu là media (ảnh/video) thì không có padding/background màu
+            const bubbleClass = isMedia
+                ? "inline-block rounded-2xl overflow-hidden"
+                : `inline-block px-4 py-2.5 rounded-2xl shadow-sm ${isMine ? 'bg-blue-600 text-white' : 'bg-white dark:bg-gray-700 text-gray-800 dark:text-white'} break-words max-w-md`;
+
+            // Sender Info for Group Chat (if not mine)
+            let senderInfoHtml = "";
+            if (!isMine && m.senderName) {
+                const avatarUrl = m.senderAvatar || '/Uploads/default-avatar.png';
+                senderInfoHtml = `
+                <div class="flex items-center gap-2 mb-1">
+                    <img src="${avatarUrl}"
+                         class="w-6 h-6 rounded-full object-cover"
+                         title="${m.senderName}" />
+                    <span class="text-xs font-medium text-gray-600 dark:text-gray-400">${m.senderName}</span>
+                </div>
+            `;
+            }
+            const bubble = `
+                                                <div class="max-w-[70%]" data-msgid="${msgId}">
+                                                    ${senderInfoHtml}
+                                                    <div class="flex items-center gap-2 ${isMine ? 'flex-row-reverse' : ''}">
+                                                        <div class="${bubbleClass}">${contentHtml}</div>
+                                                        <div class="relative group/menu">
+                                                                           <button class="text-gray-400 hover:text-gray-200 text-sm px-1 transition-colors"
+                                                                                    onclick="showMsgMenu(this, ${msgId || 'null'}, ${isMine})">
+                                                                                <i class="fas fa-ellipsis-v"></i>
+                                                                            </button>
+                                                                    <div class="hidden absolute ${isMine ? 'right-0' : 'left-0'} bottom-full mb-2 bg-white border rounded shadow z-10 text-sm" style="min-width:160px;">
+                                                                <button class="block w-full text-left px-3 py-2 hover:bg-gray-100" onclick="deleteForMe(${msgId || 'null'}, this)">Thu hồi với bạn</button>
+                                                                ${isMine ? '<button class="block w-full text-left px-3 py-2 hover:bg-gray-100 text-red-600" onclick="deleteForEveryone(' + (msgId || 'null') + ', this)">Thu hồi với mọi người</button>' : ''}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div class="mt-1 ${isMine ? 'text-right' : 'text-left'} text-[10px] ${isMine ? 'text-blue-500' : 'text-gray-400'}">
+                                                        ${formatDetailTime(m.createdAt)}
+                                                        ${isMine ? `<span class="message-status ml-1 font-medium">${m.isRead ? "Đã xem" : "Đã gửi"}</span>` : ''}
+                                                    </div>
+                                                </div>`;
+            outer.innerHTML = bubble;
+            document.getElementById("messages").appendChild(outer);
+        }
+        function formatLastMessageContent(content, isMine = false) {
+            if (!content) return isMine ? "<strong>Bạn:</strong> đã gửi 1 tệp" : "đã gửi 1 tệp";
+
+            // Xử lý tin nhắn hệ thống
+            if (content.startsWith("[system]") && content.endsWith("[/system]")) {
+                const systemText = content.replace("[system]", "").replace("[/system]", "");
+                return systemText; // Không thêm "Bạn:" cho tin nhắn hệ thống
+            }
+
+            if (content.startsWith("[img]") && content.endsWith("[/img]")) {
+                return isMine ? "<strong>Bạn:</strong> đã gửi 1 ảnh" : "đã gửi 1 ảnh";
+            }
+            if (content.startsWith("[video]") && content.endsWith("[/video]")) {
+                return isMine ? "<strong>Bạn:</strong> đã gửi 1 video" : "đã gửi 1 video";
+            }
+            if (content.startsWith("[file]") && content.includes("[/file]")) {
+                // Lấy tên file nếu có
+                const match = content.match(/\[file\](.*?)\|/);
+                const fileName = match ? match[1] : null;
+                return isMine
+                    ? `<strong>Bạn:</strong> đã gửi 1 tệp${fileName ? `: ${fileName}` : ""}`
+                    : `đã gửi 1 tệp${fileName ? `: ${fileName}` : ""}`;
+            }
+
+            // Tin nhắn văn bản bình thường
+            const plainText = content.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            const truncated = plainText.length > 50 ? plainText.substring(0, 47) + "..." : plainText;
+            return isMine ? `<strong>Bạn:</strong> ${truncated}` : truncated;
+        }
+        function deleteForMe(id, el) {
+            if (id == null || id === '') return;
+            const set = getHiddenMessageSet();
+            set.add(id);
+            saveHiddenMessageSet(set);
+            const msgContainer = el.closest('[data-msgid]')?.closest('.flex');
+            if (msgContainer) msgContainer.remove();
+            // CẬP NHẬT LAST MESSAGE BÊN MÌNH NẾU TIN BỊ XÓA LÀ TIN CUỐI
+            if (currentConversationId) {
+                updateLocalLastMessageAfterDelete();
+            }
+        }
+        async function deleteForEveryone(id, el) {
+            if (id == null || id === '') return;
+            try {
+                await chatConnection.invoke('DeleteMessageForEveryone', parseInt(id));
+                // Server sẽ tự gửi UpdateLastMessage → không cần làm gì thêm
+            } catch (err) {
+                alert(err?.message || 'Không thể xóa');
+            }
+        }
+        // ============================================
+        // 6. FILE & MEDIA HANDLING
+        // ============================================
+        function triggerFile() { document.getElementById("fileInput").click(); }
+        
+        async function uploadAndSendFile(file) {
+             if (!file || !currentConversationId) return;
+             
+             // Check size/type if needed
+             const form = new FormData();
+             form.append("conversationId", currentConversationId);
+             form.append("file", file);
+             
+             try {
+                 const res = await fetch('/Chat/UploadAttachment', { method: 'POST', body: form, credentials: 'include' });
+                 const d = await res.json();
+                 if (!d.success) { alert(d.message || 'Tải file thất bại'); return; }
+                 
+                 // Gửi qua SignalR
+                 await chatConnection.invoke("SendMessage", parseInt(currentConversationId), d.content);
+             } catch (err) {
+                 console.error('UploadAttachment Error', err);
+                 alert("Lỗi khi tải lên file/ảnh");
+             }
+        }
+
+        
+        function showPreview(file) {
+             if (!file) return;
+             // Only preview images
+             if (file.type.startsWith("image/")) {
+                 const reader = new FileReader();
+                 reader.onload = (e) => {
+                     document.getElementById("previewImage").src = e.target.result;
+                     document.getElementById("previewContainer").classList.remove("hidden");
+                 };
+                 reader.readAsDataURL(file);
+                 pendingFile = file;
+             } else {
+                 // For non-images, just auto-send (or maybe add a file icon preview? for now auto-send behavior was nice)
+                 // But request said "copy image".
+                 // If file select, let's keep auto-send for files, or unify?
+                 // Let's unify for consistency.
+                 // But for non-image, we can't 'preview' effectively with an img tag.
+                 // Let's just auto-send non-images for now, or alert name.
+                 // To stick to "image" request:
+                 uploadAndSendFile(file);
+             }
+        }
+
+        async function handleFileSelected(e) {
+            const file = e.target.files[0];
+            showPreview(file);
+        }
+
+        // Paste Image Handler
+        document.getElementById('messageInput').addEventListener('paste', function(e) {
+            const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+            let file = null;
+            for (let i = 0; i < items.length; i++) {
+                if (items[i].type.indexOf('image') !== -1) {
+                    file = items[i].getAsFile();
+                    break;
+                }
+            }
+            if (file) {
+                e.preventDefault();
+                showPreview(file);
+            }
+        });
+        // ============================================
+        // 7. EMOJI PICKER
+        // ============================================
+        function toggleEmojiPicker() {
+            const p = document.getElementById("emojiPicker");
+            p.classList.toggle("hidden");
+        }
+        function insertEmoji(e) {
+            const input = document.getElementById("messageInput");
+            const start = input.selectionStart || input.value.length;
+            const end = input.selectionEnd || input.value.length;
+            input.value = input.value.substring(0, start) + e + input.value.substring(end);
+            input.focus();
+        }
+        document.addEventListener("click", (ev) => {
+            const picker = document.getElementById("emojiPicker");
+            if (!picker) return;
+            if (!picker.classList.contains("hidden")) {
+                const within = picker.contains(ev.target) || ev.target.closest("[onclick='toggleEmojiPicker()']");
+                if (!within) picker.classList.add("hidden");
+            }
+            // Đóng menu ⋯ khi click ra ngoài
+            document.querySelectorAll('#messages [data-msgid] .relative > div').forEach(menu => {
+                if (!menu.parentElement.contains(ev.target)) menu.classList.add('hidden');
+            });
+        });
+        // ============================================
+        // 8. GROUP CHAT FUNCTIONS
+        // ============================================
+        function openCreateGroupModal() {
+            document.getElementById("createGroupModal").classList.remove("hidden");
+        }
+        function closeCreateGroupModal() {
+            document.getElementById("createGroupModal").classList.add("hidden");
+            document.getElementById("groupNameInput").value = "";
+            document.querySelectorAll(".group-member-checkbox").forEach(cb => cb.checked = false);
+        }
+        async function createGroup() {
+            const groupName = document.getElementById("groupNameInput").value.trim();
+            const selectedMembers = Array.from(document.querySelectorAll(".group-member-checkbox:checked")).map(cb => parseInt(cb.value));
+
+            if (!groupName) { alert("Vui lòng nhập tên nhóm"); return; }
+            if (selectedMembers.length < 2) { alert("Vui lòng chọn ít nhất 2 thành viên"); return; }
+
+            try {
+                const res = await fetch("/Chat/CreateGroup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ GroupName: groupName, MemberIds: selectedMembers })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    closeCreateGroupModal();
+                    // Reload page to show new group (simple way)
+                    window.location.reload();
+                } else {
+                    alert(data.message || "Tạo nhóm thất bại");
+                }
+            } catch (err) {
+                console.error("Create Group Error:", err);
+                alert("Lỗi khi tạo nhóm");
+            }
+        }
+        async function showGroupInfo() {
+            if (!currentConversationId) return;
+            const modal = document.getElementById("groupInfoModal");
+            const list = document.getElementById("groupMemberList");
+            modal.classList.remove("hidden");
+            list.innerHTML = '<div class="text-center text-gray-500">Đang tải...</div>';
+
+            try {
+                const res = await fetch(`/Chat/GetGroupMembers?conversationId=${currentConversationId}`);
+                const d = await res.json();
+                if (d.success) {
+                    list.innerHTML = "";
+                    d.data.forEach(m => {
+                        const el = document.createElement("div");
+                        el.id = `member-${m.userId}`;
+                        el.className = "flex items-center justify-between p-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg";
+                        el.innerHTML = `
+                                    <div class="flex items-center gap-3">
+                                        <img src="${m.avatar}" class="w-10 h-10 rounded-full object-cover" />
+                                        <div>
+                                            <div class="font-medium text-gray-800 dark:text-white">
+                                                ${m.fullName}
+                                                ${m.userId == myId ? '(Bạn)' : ''}
+                                            </div>
+                                            <div class="text-xs text-gray-500">${m.isAdmin ? 'Trưởng nhóm' : 'Thành viên'}</div>
+                                        </div>
+                                    </div>
+                                `;
+                        list.appendChild(el);
+                    });
+                } else {
+                    list.innerHTML = `<div class="text-center text-red-500">${d.message}</div>`;
+                }
+            } catch (err) {
+                list.innerHTML = '<div class="text-center text-red-500">Lỗi kết nối</div>';
+            }
+        }
+        function confirmLeaveGroup() {
+            if (!currentConversationId) return;
+            document.getElementById("leaveGroupModal").classList.remove("hidden");
+        }
+        function confirmDisbandGroup() {
+            if (!currentConversationId) return;
+            document.getElementById("disbandGroupModal").classList.remove("hidden");
+        }
+        async function leaveGroup(conversationId) {
+
+            try {
+                const res = await fetch("/Chat/LeaveGroup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify(parseInt(conversationId))
+                });
+                const d = await res.json();
+
+                if (d.success) {
+                    // Xóa khỏi danh sách
+                    document.querySelector(`.conv-item[data-convid='${conversationId}']`)?.remove();
+
+                    // Xóa khung chat
+                    document.getElementById("messages").innerHTML = "";
+                    document.getElementById("chatWith").innerHTML = '<span class="text-lg font-semibold text-gray-500">Bạn đã rời nhóm</span>';
+                    currentConversationId = null;
+                    updateVideoCallButton();
+                } else {
+                    alert(d.message || "Không thể rời nhóm");
+                }
+            } catch (err) {
+                alert("Lỗi kết nối");
+            }
+        }
+        // ============================================
+        // 9. CONVERSATION ACTIONS
+        // ============================================
+        function restoreConversationOrder() {
+            const savedOrder = JSON.parse(localStorage.getItem("conversationOrder") || "[]");
+            if (savedOrder.length === 0) return;
+            const parent = document.getElementById("conversationList");
+            const items = Array.from(parent.children);
+            // Lặp ngược để prepend đúng thứ tự
+            [...savedOrder].reverse().forEach(id => {
+                const el = items.find(x => x.dataset.convid === id);
+                if (el) parent.prepend(el);
+            });
+        }
+        let pendingDeleteId = null; // lưu tạm id đoạn chat cần xóa
+        async function deleteConversation(e, conversationId) {
+            e.stopPropagation();
+            pendingDeleteId = conversationId; // lưu id tạm
+
+            // Check if it's a group and I'm admin?
+            // We don't have easy access to admin status here without checking DOM or storing it.
+            // But the backend will handle the permission check.
+            // Just show generic confirmation.
+            document.getElementById("confirmMessage").textContent = "Bạn có chắc muốn xóa đoạn nhắn này?";
+            document.getElementById("confirmationModal").classList.remove("hidden");
+        }
+        async function startChat(otherId) {
+            // Kiểm tra xem đã có cuộc trò chuyện với người này chưa
+            const existingConv = document.querySelector(`.conv-item[data-otherid='${otherId}']`);
+            if (existingConv) {
+                // Đã có → mở luôn
+                const convId = existingConv.dataset.convid;
+                await openConversation(convId, otherId);
+                return;
+            }
+            // Chưa có → tạo mới
+            try {
+                const res = await fetch("/Chat/StartConversation", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify(parseInt(otherId))
+                });
+                const d = await res.json();
+                if (!d.success) {
+                    alert(d.message || "Không thể bắt đầu chat");
+                    return;
+                }
+                // Tạo phần tử mới
+                const friend = friends.find(f => f.UserId == otherId);
+                const avatar = friend?.ImageUrl ? `/Uploads/${friend.ImageUrl}` : `/Uploads/default-avatar.png`;
+                const newItem = document.createElement("div");
+                newItem.className = "conv-item group flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700 transition border-b dark:border-gray-700";
+                newItem.dataset.convid = d.conversationId;
+                newItem.dataset.otherid = otherId;
+                newItem.dataset.username = friend?.FullName || "Người dùng mới";
+                newItem.onclick = () => handleConversationClick(d.conversationId, otherId);
+                newItem.innerHTML = `
+                    <div class="relative flex-shrink-0">
+                        <img src="${avatar}" class="w-14 h-14 rounded-full object-cover" />
+                        <span class="absolute bottom-0 right-0 block w-3.5 h-3.5 rounded-full bg-green-500 ring-2 ring-white"></span>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="font-semibold text-sm text-gray-800 dark:text-gray-200 truncate">${friend?.FullName || "Người dùng mới"}</h3>
+                            <span class="text-[11px] text-gray-400 flex-shrink-0" id="time-${d.conversationId}"></span>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <p class="text-xs text-gray-500 dark:text-gray-400 truncate flex-1" id="msg-${d.conversationId}">Không có tin nhắn</p>
+                            <span id="unread-${d.conversationId}" class="hidden bg-blue-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 flex-shrink-0">0</span>
+                        </div>
+                    </div>
+                    <button onclick="deleteConversation(event, '${d.conversationId}')"
+                            class="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition absolute right-3 top-1/2 -translate-y-1/2" title="Xóa đoạn chat">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                `;
+                // Thêm vào đầu danh sách
+                const list = document.getElementById("conversationList");
+                list.prepend(newItem);
+                // Lưu thứ tự
+                const order = Array.from(list.children).map(el => el.dataset.convid);
+                localStorage.setItem("conversationOrder", JSON.stringify(order));
+                // Mở khung chat
+                await openConversation(d.conversationId, otherId);
+            } catch (err) {
+                console.error("Start Chat Error: ", err);
+            }
+        }
+        // ============================================
+        // 10. VIDEO CALL FUNCTIONS
+        // ============================================
+        function updateVideoCallButton() {
+            const btn = document.getElementById("videoCallBtn");
+            if (!btn) return;
+            
+            // Kiểm tra conversationId hợp lệ
+            const hasValidConversation = currentConversationId &&
+                currentConversationId !== "0" &&
+                currentConversationId !== 0 &&
+                currentConversationId !== null;
+
+            // Hiển thị nút chỉ khi có conversation hợp lệ
+            if (hasValidConversation) {
+                btn.classList.remove("hidden");
+                btn.title = "Gọi video";
+            } else {
+                btn.classList.add("hidden");
+            }
+        }
+        // Cập nhật nút khi load trang
+        updateVideoCallButton();
+        // ============================================
+        // 11. UI HELPER FUNCTIONS
+        // ============================================
+        function scrollMessages() {
+            const el = document.getElementById("messages");
+            el.scrollTop = el.scrollHeight;
+        }
+        function showMsgMenu(btn, id, isMine) {
+            const menu = btn.nextElementSibling;
+            document.querySelectorAll('#messages [data-msgid] + button + div').forEach(m => { if (m !== menu) m.classList.add('hidden'); });
+            if (id == null || id === '') return; // chưa có id từ server
+            menu.classList.toggle('hidden');
+        }
+        // === Ẩn tin nhắn (xóa cho tôi) & Thu hồi (xóa cho mọi người)
+        function storageKey() { return `hiddenMsgs:${myId}`; }
+        function getHiddenMessageSet() {
+            try { const arr = JSON.parse(localStorage.getItem(storageKey()) || "[]"); return new Set(arr); } catch { return new Set(); }
+        }
+        function saveHiddenMessageSet(set) { localStorage.setItem(storageKey(), JSON.stringify(Array.from(set))); }
+        // === Tìm kiếm cuộc trò chuyện ===
+        (function bindConversationSearch() {
+            const wrapper = document.querySelector('.col-span-4');
+            const input = wrapper ? wrapper.querySelector('input[type="text"]') : null;
+            if (!input) return;
+            input.addEventListener('input', () => {
+                const q = input.value.toLowerCase().trim();
+                document.querySelectorAll('#conversationList .conv-item').forEach(item => {
+                    const name = (item.dataset.username || '').toLowerCase();
+                    const msgEl = item.querySelector('[id^="msg-"]');
+                    const last = (msgEl ? msgEl.textContent : '').toLowerCase();
+                    const show = name.includes(q) || last.includes(q);
+                    item.style.display = show ? '' : 'none';
+                });
+            });
+        })();
+     
+        function updateLocalLastMessageAfterDelete() {
+            const visibleMessages = Array.from(document.querySelectorAll('#messages [data-msgid]'))
+                .map(el => {
+                    const mid = el.dataset.msgid;
+                    const content = el.querySelector('.break-words')?.innerHTML || '';
+                    const time = el.querySelector('div.mt-1')?.textContent || '';
+                    const isMine = el.closest('.flex')?.classList.contains('justify-end');
+                    return { mid: parseInt(mid), content, time, isMine };
+                })
+                .filter(m => m.mid && !isNaN(m.mid));
+            if (visibleMessages.length === 0) {
+                const msgEl = document.getElementById(`msg-${currentConversationId}`);
+                const timeEl = document.getElementById(`time-${currentConversationId}`);
+                if (msgEl) msgEl.innerHTML = "Không có tin nhắn";
+                if (timeEl) timeEl.textContent = "";
+                return;
+            }
+            // Lấy tin cuối cùng hiển thị
+            const lastVisible = visibleMessages[visibleMessages.length - 1];
+            const msgEl = document.getElementById(`msg-${currentConversationId}`);
+            const timeEl = document.getElementById(`time-${currentConversationId}`);
+            if (msgEl) {
+                msgEl.innerHTML = lastVisible.isMine
+                    ? `<strong>Bạn:</strong> ${lastVisible.content}`
+                    : lastVisible.content;
+            }
+            if (timeEl) timeEl.textContent = lastVisible.time;
+        }
+    
+ 
+        // Xử lý khi bấm nút "Hủy"
+        document.getElementById("cancelDelete").addEventListener("click", () => {
+            document.getElementById("confirmationModal").classList.add("hidden");
+            pendingDeleteId = null;
+        });
+        // Xử lý khi bấm nút "Xóa"
+        document.getElementById("confirmDelete").addEventListener("click", async () => {
+            if (!pendingDeleteId) return;
+            const res = await fetch("/Chat/DeleteConversation", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+                body: JSON.stringify(parseInt(pendingDeleteId))
+            });
+            const d = await res.json();
+            if (d.success) {
+                const el = document.querySelector(`.conv-item[data-convid='${pendingDeleteId}']`);
+                if (el) el.remove();
+                if (currentConversationId == pendingDeleteId) {
+                    document.getElementById("messages").innerHTML = "";
+                    currentConversationId = null;
+                }
+            } else {
+                alert(d.message);
+            }
+            document.getElementById("confirmationModal").classList.add("hidden");
+            pendingDeleteId = null;
+        });
+
+        // Xử lý khi bấm nút "Hủy" rời nhóm
+        document.getElementById("cancelLeaveGroupBtn").addEventListener("click", () => {
+            document.getElementById("leaveGroupModal").classList.add("hidden");
+        });
+
+        // Xử lý khi bấm nút "Rời nhóm"
+        document.getElementById("confirmLeaveGroupBtn").addEventListener("click", () => {
+            if (currentConversationId) {
+                leaveGroup(currentConversationId);
+            }
+            document.getElementById("leaveGroupModal").classList.add("hidden");
+        });
+
+
+        document.getElementById("cancelDisbandGroupBtn").addEventListener("click", () => {
+            document.getElementById("disbandGroupModal").classList.add("hidden");
+        });
+
+        document.getElementById("confirmDisbandGroupBtn").addEventListener("click", async () => {
+            if (!currentConversationId) return;
+            
+            try {
+                const res = await fetch("/Chat/DisbandGroup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify(parseInt(currentConversationId))
+                });
+                const d = await res.json();
+
+                if (d.success) {
+                    // UI update handled by GroupDeleted event, but we also do it manually for the admin to be sure
+                    const el = document.querySelector(`.conv-item[data-convid='${currentConversationId}']`);
+                    if (el) el.remove();
+
+                    document.getElementById("messages").innerHTML = "";
+                    document.getElementById("chatWith").querySelector('.flex.items-center.gap-3').innerHTML = '<span class="text-lg font-semibold text-gray-500 dark:text-gray-300">Nhóm đã giải tán</span>';
+                    currentConversationId = null;
+                    updateVideoCallButton();
+                    document.getElementById("leaveGroupBtn").classList.add("hidden");
+                    document.getElementById("disbandGroupBtn").classList.add("hidden");
+                } else {
+                    alert(d.message || "Không thể giải tán nhóm");
+                }
+            } catch (err) {
+                alert("Lỗi kết nối");
+            }
+            document.getElementById("disbandGroupModal").classList.add("hidden");
+        });
+
+        // === Group Info Functions ===
+        function closeGroupInfo() {
+            document.getElementById("groupInfoModal").classList.add("hidden");
+        }
+
+        // === Group Chat Functions ===
+         function closeCallRejectedModal() {
+            document.getElementById("callRejectedModal").classList.add("hidden");
+            cleanupCall();
+        }
+        function closeCallEndedModal() {
+            document.getElementById("callEndedModal").classList.add("hidden");
+            cleanupCall();
+        }
+
+        // Tìm kiếm realtime cho tạo nhóm
+        document.getElementById("memberSearchInput")?.addEventListener("input", function () {
+            const query = this.value.toLowerCase().trim();
+            document.querySelectorAll("#memberList label").forEach(label => {
+                const name = label.querySelector("span").textContent.toLowerCase();
+                label.style.display = name.includes(query) ? "flex" : "none";
+            });
+        });
+
+        // === NEW CHAT MODAL FUNCTIONS ===
+        function openNewChatModal() {
+            document.getElementById("newChatModal").classList.remove("hidden");
+            document.getElementById("newChatSearchInput").value = "";
+            // Reset hiển thị tất cả bạn bè
+            document.querySelectorAll("#newChatFriendList .friend-item").forEach(item => {
+                item.style.display = "flex";
+            });
+        }
+
+        function closeNewChatModal() {
+            document.getElementById("newChatModal").classList.add("hidden");
+        }
+
+        async function startChatWithFriend(userId, userName) {
+            closeNewChatModal();
+            // Kiểm tra xem đã có cuộc trò chuyện với người này chưa
+            const existingConv = document.querySelector(`.conv-item[data-otherid='${userId}']`);
+            if (existingConv) {
+                // Đã có → mở luôn
+                const convId = existingConv.dataset.convid;
+                const isGroup = existingConv.dataset.isgroup === 'true';
+                const adminId = existingConv.dataset.adminid;
+                await openConversation(convId, userId, userName, isGroup, adminId);
+            } else {
+                // Chưa có → tạo mới
+                await startChat(userId);
+            }
+        }
+
+        // Tìm kiếm realtime cho tin nhắn mới
+        document.getElementById("newChatSearchInput")?.addEventListener("input", function () {
+            const query = this.value.toLowerCase().trim();
+            document.querySelectorAll("#newChatFriendList .friend-item").forEach(item => {
+                const name = item.dataset.username.toLowerCase();
+                item.style.display = name.includes(query) ? "flex" : "none";
+            });
+        });
+
+        // Tìm kiếm cuộc trò chuyện
+        document.getElementById("conversationSearchInput")?.addEventListener("input", function () {
+            const query = this.value.toLowerCase().trim();
+            document.querySelectorAll("#conversationList .conv-item").forEach(item => {
+                const name = (item.dataset.username || '').toLowerCase();
+                const msgEl = item.querySelector('[id^="msg-"]');
+                const last = (msgEl ? msgEl.textContent : '').toLowerCase();
+                const show = name.includes(query) || last.includes(query);
+                item.style.display = show ? '' : 'none';
+            });
+        });
+    </script>
+    <script src="~/js/videoCall.js"></script>
+}
+

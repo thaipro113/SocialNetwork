@@ -1,0 +1,88 @@
+﻿@model SocialNetwork.Models.User
+@{
+    ViewData["Title"] = "Chỉnh sửa hồ sơ";
+    Layout = "~/Views/Shared/Temp.cshtml";
+}
+
+<div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- Edit Form Card -->
+    <div class="glass-effect rounded-3xl p-8 bg-white shadow-sm card-hover">
+        <h3 class="text-2xl font-bold text-gray-900 mb-6 text-center">Chỉnh sửa hồ sơ</h3>
+
+        <!-- Thêm enctype để upload file -->
+        <form asp-action="Profile" method="post" enctype="multipart/form-data" class="space-y-6">
+            <input type="hidden" asp-for="UserId" />
+
+            <div>
+                <label asp-for="FullName" class="block text-sm font-medium text-gray-700 mb-2"></label>
+                <input asp-for="FullName" class="w-full px-4 py-3 bg-gray-100 text-gray-900 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow" placeholder="Nhập họ và tên" />
+                <span asp-validation-for="FullName" class="text-red-600 text-sm mt-1"></span>
+            </div>
+
+            <div>
+                <label asp-for="Email" class="block text-sm font-medium text-gray-700 mb-2"></label>
+                <input asp-for="Email" class="w-full px-4 py-3 bg-gray-100 text-gray-900 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow" placeholder="Nhập email" />
+                <span asp-validation-for="Email" class="text-red-600 text-sm mt-1"></span>
+            </div>
+            <div>
+                <label asp-for="DateOfBirth" class="block text-sm font-medium text-gray-700 mb-2">Ngày sinh</label>
+                <input asp-for="DateOfBirth" type="date"
+                       class="w-full px-4 py-3 bg-gray-100 text-gray-900 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow"
+                       required>
+            </div>
+            <div>
+                <label asp-for="PhoneNumber" class="block text-sm font-medium text-gray-700 mb-2"></label>
+                <input asp-for="PhoneNumber" class="w-full px-4 py-3 bg-gray-100 text-gray-900 placeholder-gray-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 input-glow" placeholder="Nhập số điện thoại" />
+                <span asp-validation-for="PhoneNumber" class="text-red-600 text-sm mt-1"></span>
+            </div>
+
+            <!-- Upload ảnh từ máy -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Ảnh đại diện</label>
+                <input type="file" name="ImageFile" class="w-full text-gray-700 file:mr-4 file:py-2 file:px-4
+                       file:rounded-full file:border-0 file:text-sm file:font-semibold
+                       file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100" />
+
+                <!-- Hiển thị ảnh hiện tại nếu có -->
+                @if (!string.IsNullOrEmpty(Model.ImageUrl))
+                {
+                    <div class="mt-3">
+                        <p class="text-sm text-gray-500 mb-1">Ảnh hiện tại:</p>
+                        <img src="~/uploads/@Model.ImageUrl" alt="Avatar" class="w-32 h-32 object-cover rounded-full border" />
+                    </div>
+                }
+            </div>
+
+            <div class="flex justify-center space-x-4">
+                <button type="submit" class="gradient-bg text-white px-6 py-3 rounded-xl font-semibold btn-hover">Lưu thay đổi</button>
+                <a href="@Url.Action("Profile", "User")" class="bg-gray-200 text-gray-700 px-6 py-3 rounded-xl font-semibold hover:bg-gray-300 transition-colors">Hủy</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const card = document.querySelector('.card-hover');
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            card.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+            setTimeout(() => {
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 100);
+
+            // Input focus animation
+            const inputs = document.querySelectorAll('.input-glow');
+            inputs.forEach(input => {
+                input.addEventListener('focus', () => {
+                    input.classList.add('shadow-lg', 'scale-105');
+                });
+                input.addEventListener('blur', () => {
+                    input.classList.remove('shadow-lg', 'scale-105');
+                });
+            });
+        });
+    </script>
+}

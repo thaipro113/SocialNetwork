@@ -1,0 +1,1207 @@
+﻿@model IEnumerable<SocialNetwork.Models.Post>
+@{
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    // Lấy UserId từ session thông qua IHttpContextAccessor
+    var currentUserId = HttpContextAccessor?.HttpContext?.Session.GetInt32("UserId");
+}
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+
+<div id="confirmationModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-96 text-center shadow-lg">
+        <p class="text-lg font-semibold text-gray-800 mb-4">Xác nhận</p>
+        <p class="text-gray-600 mb-6" id="modal-delete-message">Bạn có chắc muốn xóa?</p>
+        <div class="flex justify-center space-x-4">
+            <button id="confirmDelete" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Xóa</button>
+            <button id="cancelDelete" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400">Hủy</button>
+        </div>
+    </div>
+</div>
+
+<!-- Share Modal -->
+<div id="shareModal" class="fixed inset-0 bg-black bg-opacity-50 hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 shadow-lg">
+        <h3 class="text-lg font-semibold text-gray-800 dark:text-white mb-4">Chia sẻ bài viết</h3>
+        <textarea id="shareContent" class="w-full p-2 border rounded-lg mb-4 dark:bg-gray-700 dark:border-gray-600 dark:text-white" rows="3" placeholder="Viết suy nghĩ của bạn..."></textarea>
+        <div class="flex justify-end space-x-3">
+            <button id="cancelShare" class="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 dark:bg-gray-600 dark:text-white">Hủy</button>
+            <button id="confirmShare" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Chia sẻ ngay</button>
+        </div>
+    </div>
+</div>
+
+<div class="space-y-6">
+    @if (currentUserId != null) {
+    <!-- STORY BAR -->
+    <div class="relative mb-6">
+        <div class="flex space-x-4 overflow-x-auto pb-4 no-scrollbar" id="story-bar">
+            <!-- Create Story Card -->
+            <div class="flex-shrink-0 w-32 h-48 relative rounded-xl overflow-hidden cursor-pointer group shadow-sm hover:shadow-md transition-all" onclick="document.getElementById('storyInput').click()">
+                <img src="@(currentUserId != null && !string.IsNullOrEmpty(HttpContextAccessor.HttpContext.Session.GetString("ImageUrl")) ? Url.Content($"~/uploads/{HttpContextAccessor.HttpContext.Session.GetString("ImageUrl")}") : Url.Content("~/uploads/default-avatar.png"))" 
+                     class="w-full h-full object-cover transition duration-300 group-hover:scale-110 opacity-90 group-hover:opacity-100">
+                <div class="absolute bottom-0 inset-x-0 h-1/3 bg-gradient-to-t from-black/60 to-transparent"></div>
+                <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 w-8 h-8 bg-blue-600 rounded-full border-2 border-white flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+                    <i class="fa-solid fa-plus text-white text-sm"></i>
+                </div>
+                <div class="absolute bottom-2 inset-x-0 text-center text-white text-xs font-semibold drop-shadow-md">Tạo tin</div>
+                <input type="file" id="storyInput" accept="image/*,video/*" class="hidden" onchange="uploadStory(this)">
+            </div>
+            
+            <!-- Stories will be loaded here via JS -->
+        </div>
+    </div>
+
+    <!-- STORY VIEWER MODAL -->
+    <div id="storyViewerModal" class="fixed inset-0 bg-black/95 z-[9999] hidden flex items-center justify-center">
+        <button class="absolute top-4 right-4 text-white hover:text-gray-300 text-3xl z-[101]" onclick="closeStoryViewer()">✕</button>
+        
+        <div class="relative w-full max-w-lg h-full md:h-[90vh] flex flex-col">
+            <!-- Progress Bars -->
+            <div id="storyProgressContainer" class="absolute top-4 left-4 right-4 flex space-x-1 h-1 z-20"></div>
+
+            <!-- Header -->
+            <div class="absolute top-8 left-4 right-16 flex items-center z-20">
+                <img id="viewerAvatar" class="w-10 h-10 rounded-full border-2 border-white shadow-sm">
+                <div class="ml-3">
+                    <div id="viewerName" class="text-white font-semibold text-sm drop-shadow-md"></div>
+                    <div id="viewerTime" class="text-white/80 text-xs drop-shadow-md"></div>
+                </div>
+            </div>
+            
+            <!-- Controls -->
+            <div class="absolute top-8 right-16 flex items-center space-x-4 z-[101]">
+                 <button id="playPauseBtn" class="text-white hover:text-gray-300 text-lg" onclick="toggleStoryPlayback()">
+                    <i class="fa-solid fa-pause"></i>
+                </button>
+                <button id="deleteStoryBtn" class="text-white hover:text-red-500 hidden" onclick="deleteCurrentStory()" title="Xóa tin này">
+                    <i class="fa-solid fa-trash-can text-lg"></i>
+                </button>
+            </div>
+            
+            <!-- Media Container -->
+            <div class="flex-1 flex items-center justify-center bg-black relative"
+                 onmousedown="pauseStory()" onmouseup="resumeStory()"
+                 ontouchstart="pauseStory()" ontouchend="resumeStory()">
+                 <!-- Navigation Areas -->
+                <div class="absolute inset-y-0 left-0 w-1/3 z-10 cursor-pointer" onclick="prevStory()"></div>
+                <div class="absolute inset-y-0 right-0 w-1/3 z-10 cursor-pointer" onclick="nextStory()"></div>
+
+                <img id="storyImage" class="max-h-full max-w-full object-contain hidden">
+                <video id="storyVideo" class="max-h-full max-w-full object-contain hidden" playsinline></video>
+                
+                <div id="storyContent" class="absolute bottom-20 inset-x-0 text-center text-white text-lg font-medium p-4 bg-gradient-to-t from-black/80 to-transparent"></div>
+            </div>
+        </div>
+    </div>
+    }
+
+    @foreach (var post in Model)
+    {
+        var commentSectionId = $"comment-section-{post.PostId}";
+        <article class="bg-white dark:bg-gray-800 rounded-xl shadow-sm card-hover border border-transparent dark:border-gray-700 transition-all duration-300">
+            <div class="p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center space-x-3">
+                        @if (!string.IsNullOrEmpty(post.User?.ImageUrl))
+                        {
+                            <a href="@Url.Action("Profile","User", new { id = post.UserId })">
+                                <img src="~/uploads/@post.User.ImageUrl"
+                                     alt="Avatar"
+                                     class="w-12 h-12 rounded-full object-cover border" />
+                            </a>
+                        }
+                        else
+                        {
+                            <a href="@Url.Action("Profile","User", new { id = post.UserId })">
+                                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='25' fill='%23f093fb'/%3E%3Ctext x='25' y='31' text-anchor='middle' fill='white' font-size='20' font-weight='bold'%3E@(post.User?.Username?.FirstOrDefault().ToString().ToUpper() ?? "U")%3C/text%3E%3C/svg%3E"
+                                     alt="Avatar"
+                                     class="w-12 h-12 rounded-full border" />
+                            </a>
+                        }
+
+                        <div>
+                            <a href="@Url.Action("Profile","User", new { id = post.UserId })">
+                            <h4 class="font-semibold text-gray-800">@post.User?.Username</h4>
+                            </a>
+                            <p class="text-sm text-gray-600">
+                                <span class="time-ago" data-time="@post.CreatedAt.ToString("o")"></span> •
+                                @{
+                                    string icon = post.Visibility switch
+                                    {
+                                        "Public" => "<i class=\"fa-solid fa-earth-asia\"></i>",
+                                        "Friends" => "<i class=\"fa-solid fa-user-group\"></i>",
+                                        "Private" => "<i class=\"fa-solid fa-lock\"></i>",
+                                        _ => "<i class=\"fa-solid fa-earth-asia\"></i>"
+                                    };
+                                    string visibilityText = post.Visibility switch
+                                    {
+                                        "Public" => "Công khai",
+                                        "Friends" => "Bạn bè",
+                                        "Private" => "Chỉ mình tôi",
+                                        _ => "Công khai"
+                                    };
+                                }
+                                @Html.Raw(icon) @visibilityText
+                            </p>
+                        </div>
+                    </div>
+                    <!-- MENU 3 CHẤM - CHỈ HIỆN KHI LÀ BÀI CỦA MÌNH -->
+                    @if (currentUserId == post.UserId)
+                    {
+                        <div class="relative inline-block text-left">
+                            <button type="button"
+                                    onclick="toggleMenu(this)"
+                                    class="p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200">
+                                <i class="fa-solid fa-ellipsis text-xl text-gray-500 dark:text-gray-400"></i>
+                            </button>
+
+                            <div class="post-menu hidden absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl
+                    border border-gray-200 dark:border-gray-700 z-50 overflow-hidden">
+                                <a href="@Url.Action("Edit", "Post", new { id = post.PostId })"
+                                   class="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition">
+                                    <i class="fa-solid fa-pen text-blue-600 text-lg"></i>
+                                    <div>
+                                        <div class="font-semibold text-gray-800 dark:text-white">Chỉnh sửa bài viết</div>
+                                    </div>
+                                </a>
+
+                                <hr class="border-gray-200 dark:border-gray-700">
+
+                                <button type="button"
+                                        class="delete-post-btn w-full flex items-center gap-4 px-5 py-4 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 transition text-left"
+                                        data-post-id="@post.PostId"
+                                        data-return-url="@Context.Request.Path">
+                                    <i class="fa-solid fa-trash-can text-lg"></i>
+                                    <div>
+                                        <div class="font-semibold">Xóa bài viết</div>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    <!-- Nếu không phải bài của mình → KHÔNG HIỆN GÌ HẾT → sạch sẽ 100% -->
+                </div>
+
+                @if (post.OriginalPost != null)
+                {
+                    // === HIỂN THỊ BÀI CHIA SẺ ===
+                    // 1. Caption của người chia sẻ
+                    @if (!string.IsNullOrEmpty(post.Content))
+                    {
+                        <p class="text-gray-800 dark:text-gray-200 mb-4">@post.Content</p>
+                    }
+
+                    // 2. Nội dung bài gốc (lồng bên trong)
+                    <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 mt-2 bg-gray-50 dark:bg-gray-700/50">
+                        <!-- Header bài gốc -->
+                        <div class="flex items-center space-x-3 mb-3">
+                            @{
+                                var originalUser = post.OriginalPost.User;
+                                var originalAvatar = !string.IsNullOrEmpty(originalUser?.ImageUrl) 
+                                    ? Url.Content($"~/uploads/{originalUser.ImageUrl}") 
+                                    : "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='50' height='50' viewBox='0 0 50 50'%3E%3Ccircle cx='25' cy='25' r='25' fill='%23f093fb'/%3E%3Ctext x='25' y='31' text-anchor='middle' fill='white' font-size='20' font-weight='bold'%3E" + (originalUser?.Username?.FirstOrDefault().ToString().ToUpper() ?? "U") + "%3C/text%3E%3C/svg%3E";
+                            }
+                            <a href="@Url.Action("Profile","User", new { id = post.OriginalPost.UserId })">
+                                <img src="@originalAvatar" alt="Avatar" class="w-10 h-10 rounded-full object-cover border" />
+                            </a>
+                            <div>
+                                <a href="@Url.Action("Profile","User", new { id = post.OriginalPost.UserId })">
+                                    <h4 class="font-semibold text-gray-800 dark:text-white text-sm">@originalUser?.Username</h4>
+                                </a>
+                                <p class="text-xs text-gray-500">
+                                    <span class="time-ago" data-time="@post.OriginalPost.CreatedAt.ToString("o")"></span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <!-- Nội dung bài gốc -->
+                        @if (!string.IsNullOrEmpty(post.OriginalPost.Content))
+                        {
+                            <p class="text-gray-800 dark:text-gray-200 mb-3 text-sm">@post.OriginalPost.Content</p>
+                        }
+
+                        <!-- Media bài gốc -->
+                        @if (!string.IsNullOrEmpty(post.OriginalPost.MediaUrl))
+                        {
+                            var ext = System.IO.Path.GetExtension(post.OriginalPost.MediaUrl).ToLower();
+                            <div class="rounded-lg overflow-hidden">
+                                @if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp")
+                                {
+                                    <img src="@post.OriginalPost.MediaUrl" alt="media" class="w-full rounded-lg" />
+                                }
+                                else if (ext == ".mp4" || ext == ".webm" || ext == ".ogg")
+                                {
+                                    <video controls class="w-full rounded-lg">
+                                        <source src="@post.OriginalPost.MediaUrl" type="video/mp4" />
+                                        Trình duyệt không hỗ trợ video.
+                                    </video>
+                                }
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    // === HIỂN THỊ BÀI VIẾT THƯỜNG ===
+                    @if (!string.IsNullOrEmpty(post.Content))
+                    {
+                        <p class="text-gray-800 dark:text-gray-200 mb-4">@post.Content</p>
+                    }
+
+                    @if (!string.IsNullOrEmpty(post.MediaUrl))
+                    {
+                        var ext = System.IO.Path.GetExtension(post.MediaUrl).ToLower();
+                        <div class="rounded-lg overflow-hidden mb-4">
+                            @if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".gif" || ext == ".webp")
+                            {
+                                <img src="@post.MediaUrl" alt="media" class="w-full rounded-lg" />
+                            }
+                            else if (ext == ".mp4" || ext == ".webm" || ext == ".ogg")
+                            {
+                                <video controls class="w-full rounded-lg">
+                                    <source src="@post.MediaUrl" type="video/mp4" />
+                                    Trình duyệt không hỗ trợ video.
+                                </video>
+                            }
+                        </div>
+                    }
+                }
+            </div>
+
+            <div class="px-6 py-3 border-t border-gray-100">
+                <div class="flex items-center mb-3">
+                    <div class="flex items-center space-x-2"
+                         id="like-wrapper-@post.PostId"
+                         style="display:@(post.Likes.Any() ? "flex" : "none")">
+                        <div class="flex -space-x-1 text-lg">
+                            <img src="~/uploads/thumb-up.png" style="width:20px;" alt="Alternate Text" />
+                        </div>
+                        <span class="text-sm text-gray-600" id="like-count-@post.PostId">
+                            @if (post.Likes.Any(l => l.UserId == currentUserId))
+                            {
+                                if (post.Likes.Count > 1)
+                                {
+                                    <text>Bạn và @(post.Likes.Count - 1) người khác</text>
+                                }
+                                else
+                                {
+                                    <text>Bạn</text>
+                                }
+                            }
+                            else if (post.Likes.Any())
+                            {
+                                <text>@post.Likes.Count lượt thích</text>
+                            }
+                            else
+                            {
+                                <text></text>
+                            }
+                        </span>
+                    </div>
+
+                    <div class="text-sm text-gray-600 ml-auto @(post.Comments != null && post.Comments.Any() ? "" : "hidden")"
+                         id="comment-count-@post.PostId">
+                        <a onclick="toggleComments('comment-section-@post.PostId')" style="cursor:pointer;">
+                            @(post.Comments != null ? post.Comments.Count : 0) bình luận
+                        </a>
+                    </div>
+                </div>
+
+                <div class="flex justify-between">
+                    @if (currentUserId != null)
+                    {
+                        <form asp-action="Like" asp-controller="Post" method="post" class="flex-1">
+                            <input type="hidden" name="postId" value="@post.PostId" />
+                            <button type="submit"
+                                    class="reaction-btn w-full flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors @(post.Likes.Any(l => l.UserId == currentUserId) ? "text-blue-600 font-semibold" : "")"
+                                    data-liked="@(post.Likes.Any(l => l.UserId == currentUserId) ? "true" : "false")">
+                                <i class="@(post.Likes.Any(l => l.UserId == currentUserId) ? "fa-solid fa-thumbs-up" : "fa-regular fa-thumbs-up")"></i>
+                                <span class="text-sm font-medium">
+                                    @(post.Likes.Any(l => l.UserId == currentUserId) ? "Đã thích" : "Thích")
+                                </span>
+                            </button>
+                        </form>
+                    }
+                    else
+                    {
+                        <a href="@Url.Action("Login","Account")"
+                           class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100">
+                            <i class="fa-regular fa-thumbs-up"></i><span class="text-sm font-medium">Thích</span>
+                        </a>
+                    }
+
+                    @if (currentUserId != null)
+                    {
+                        <button type="button"
+                                class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                onclick="toggleComments('@commentSectionId')">
+                            <span><i class="fa-regular fa-comment"></i></span>
+                            <span class="text-sm font-medium">Bình luận</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <a href="@Url.Action("Login","Account")"
+                           class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100">
+                            <span><i class="fa-regular fa-comment"></i>></span><span class="text-sm font-medium">Bình luận</span>
+                        </a>
+                    }
+
+                    @if (currentUserId != null)
+                    {
+                        <button type="button"
+                                class="share-btn flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+                                data-post-id="@post.PostId">
+                            <span><i class="fa-regular fa-share-from-square"></i></span>
+                            <span class="text-sm font-medium">Chia sẻ</span>
+                        </button>
+                    }
+                    else
+                    {
+                        <a href="@Url.Action("Login","Account")"
+                           class="flex-1 flex items-center justify-center space-x-2 px-4 py-2 rounded-lg hover:bg-gray-100">
+                            <span><i class="fa-regular fa-share-from-square"></i></span><span class="text-sm font-medium">Chia sẻ</span>
+                        </a>
+                    }
+                </div>
+            </div>
+
+            <div id="@commentSectionId" class="hidden px-6 py-4 border-t border-gray-100">
+                <div class="mt-3 space-y-3">
+                @inject IHttpContextAccessor HttpContextAccessor
+
+                    @foreach (var comment in post.Comments)
+                    {
+                        var avatarFileName = comment.User?.ImageUrl;
+                        var avatarUrl = string.IsNullOrEmpty(avatarFileName)
+                        ? Url.Content("~/uploads/default-avatar.png")
+                        : Url.Content($"~/uploads/{avatarFileName}");
+                        <div class="flex items-start space-x-3 mb-3" id="comment-@comment.CommentId">
+                            <a href="@Url.Action("Profile","User", new { id = comment.UserId })">
+                                <img src="@avatarUrl" alt="Avatar"
+                                     class="w-10 h-10 rounded-full object-cover hover:ring-2 hover:ring-purple-500 transition-all" />
+                            </a>
+
+                            <div class="flex-1">
+                                <div class="bg-gray-100 rounded-lg px-3 py-2 inline-block">
+                                    <p class="font-semibold text-sm">@comment.User?.FullName</p>
+                                    <p class="text-sm text-gray-700">@comment.Content</p>
+                                </div>
+                                <p class="text-xs text-gray-500 mt-1 ml-2">
+                                    <span class="time-ago" data-time="@comment.CreatedAt?.ToString("o")"></span>
+
+                                    @* Hiển thị nút xóa nếu là chủ bình luận hoặc chủ bài viết *@
+                                    @if (currentUserId == comment.UserId || currentUserId == post.UserId)
+                                    {
+                                        <button type="button"
+                                                class="text-red-500 text-xs ml-2 delete-comment-btn"
+                                                data-comment-id="@comment.CommentId"
+                                                data-post-id="@post.PostId">
+                                            🗑 Xóa
+                                        </button>
+                                    }
+                                </p>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (currentUserId != null)
+                {
+                    var username = HttpContextAccessor.HttpContext.Session.GetString("FullName");
+                    var avatarFileName = HttpContextAccessor.HttpContext.Session.GetString("ImageUrl");
+                    var avatarUrl = string.IsNullOrEmpty(avatarFileName)
+                    ? Url.Content("~/uploads/default-avatar.png")
+                    : Url.Content($"~/uploads/{avatarFileName}");
+
+                    <form class="comment-form flex items-center mt-3 space-x-2" data-post-id="@post.PostId">
+                        <input type="hidden" name="postId" value="@post.PostId" />
+                        @if (!string.IsNullOrEmpty(avatarFileName))
+                        {
+                            <img src="@avatarUrl" alt="Avatar" class="w-8 h-8 rounded-full object-cover hover:ring-2 hover:ring-white/50 transition-all" />
+                        }
+                        else
+                        {
+                            <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23f093fb'/%3E%3Ctext x='20' y='26' text-anchor='middle' fill='white' font-size='16' font-weight='bold'%3E@(username?.FirstOrDefault().ToString().ToUpper() ?? "U")%3C/text%3E%3C/svg%3E" alt="Avatar" class="w-8 h-8 rounded-full" />
+                        }
+                        <input type="text" name="content" placeholder="Viết bình luận..."
+                               class="flex-1 border rounded-lg px-3 py-1 text-sm focus:ring-2 focus:ring-purple-500" />
+                        <button type="submit" class="px-3 py-1 bg-purple-600 text-white rounded-lg">Gửi</button>
+                    </form>
+                }
+            </div>
+        </article>
+    }
+</div>
+
+<style>
+    .text-gray-500 {
+        margin-left: 0.5rem;
+    }
+
+    #confirmationModal {
+        display: none;
+    }
+
+        #confirmationModal.show {
+            display: flex;
+        }
+
+    .dark article {
+        background-color: #1f2937 !important;
+        border: 1px solid #374151 !important;
+    }
+    .dark .text-gray-800 { color: #f3f4f6 !important; }
+    .dark .text-gray-600 { color: #d1d5db !important; }
+    .dark .text-gray-500 { color: #9ca3af !important; }
+    .dark .bg-gray-100 { background-color: #374151 !important; }
+    .dark .comment-form input[type="text"] {
+        background-color: #111827 !important;
+        border-color: #4b5563 !important;
+        color: #f3f4f6 !important;
+    }
+    .dark .comment-form input::placeholder { color: #9ca3af !important; }
+    .dark .comment-form button {
+        background-color: #a78bfa !important;
+    }
+    .dark .comment-form button:hover {
+        background-color: #9333ea !important;
+    }
+    .dark .reaction-btn:hover,
+    .dark button.flex-1:hover,
+    .dark a.flex-1:hover {
+        background-color: #374151 !important;
+    }
+    .dark .reaction-btn.text-blue-600 { color: #93c5fd !important; }
+    /* 2 thanh ngang trên & dưới phần Thích - Bình luận - Chia sẻ → màu xám nhạt đẹp */
+    .dark .border-t.border-gray-100,
+    .dark .border-gray-100 {
+        border-color: #374151 !important; /* xám nhạt, chuẩn Facebook */
+    }
+    /* Modal */
+    .dark #confirmationModal .bg-white {
+        background-color: #1f2937 !important;
+        border: 1px solid #374151 !important;
+    }
+    .dark #confirmationModal p { color: #e5e7eb !important; }
+    .dark #confirmDelete { background-color: #ef4444 !important; }
+    .dark #confirmDelete:hover { background-color: #dc2626 !important; }
+    .dark #cancelDelete { background-color: #4b5563 !important; color: #e5e7eb !important; }
+    .dark #cancelDelete:hover { background-color: #6b7280 !important; }
+
+    /* Menu 3 chấm & nút xóa */
+    .dark .post-menu { background-color: #1f2937 !important; border-color: #4b5563 !important; }
+    .dark .post-menu button:hover { background-color: #374151 !important; }
+    .dark .delete-comment-btn:hover { color: #f87171 !important; }
+    /* ============================
+          DARK MODE CHO POST
+       ============================ */
+
+    .dark article {
+        background-color: #1f2937 !important;
+        border: 1px solid #374151 !important;
+    }
+
+    /* --- Text chung --- */
+    .dark .text-gray-800,
+    .dark .text-gray-700,
+    .dark .text-gray-600,
+    .dark .text-gray-500 {
+        color: #ffffff !important; /* toàn bộ chữ đổi thành trắng */
+    }
+
+    /* --- Tên người dùng trong comment --- */
+    .dark .comment-section .font-semibold,
+    .dark .font-semibold {
+        color: #ffffff !important;
+    }
+
+    /* --- Nội dung bình luận --- */
+    .dark .comment-section .text-gray-700 {
+        color: #ffffff !important;
+    }
+
+    /* --- Nền khung bình luận --- */
+    .dark .comment-section .bg-gray-100 {
+        background-color: #374151 !important;
+    }
+
+    /* --- Input comment --- */
+    .dark .comment-form input[type="text"] {
+        background-color: #111827 !important;
+        border-color: #4b5563 !important;
+        color: #ffffff !important;
+    }
+
+    .dark .comment-form input::placeholder {
+        color: #9ca3af !important;
+    }
+
+    /* --- Button gửi bình luận --- */
+    .dark .comment-form button {
+        background-color: #a78bfa !important;
+    }
+
+        .dark .comment-form button:hover {
+            background-color: #9333ea !important;
+        }
+
+    /* --- Các nút: Thích - Bình luận - Chia sẻ --- */
+    .dark button.flex-1 span,
+    .dark a.flex-1 span {
+        color: #ffffff !important;
+    }
+
+    /* --- Icon màu trắng --- */
+    .dark button.flex-1 i,
+    .dark a.flex-1 i {
+        color: #ffffff !important;
+    }
+
+    /* Hover các nút trong dark mode */
+    .dark button.flex-1:hover,
+    .dark a.flex-1:hover {
+        background-color: #374151 !important;
+    }
+
+    /* Border trong dark mode */
+    .dark .border-t.border-gray-100,
+    .dark .border-gray-100 {
+        border-color: #374151 !important;
+    }
+
+    /* Modal Dark Mode */
+    .dark #confirmationModal .bg-white {
+        background-color: #1f2937 !important;
+        border: 1px solid #374151 !important;
+    }
+
+</style>
+
+@section Scripts {
+    <script>
+        // ==============================
+        // Constants/State
+        // ==============================
+        let currentCommentId = null;
+        let currentPostId = null;
+        let deleteActionType = null; // 'post' or 'comment'
+        let postReturnUrl = null;
+
+        const modal = document.getElementById("confirmationModal");
+        const confirmDeleteBtn = document.getElementById("confirmDelete");
+        const cancelDeleteBtn = document.getElementById("cancelDelete");
+        const modalMessageEl = document.getElementById("modal-delete-message");
+
+        // Share Modal elements
+        const shareModal = document.getElementById("shareModal");
+        const confirmShareBtn = document.getElementById("confirmShare");
+        const cancelShareBtn = document.getElementById("cancelShare");
+        const shareContentInput = document.getElementById("shareContent");
+        let sharePostId = null;
+
+
+        // ==============================
+        // Toggle hiển thị Comments
+        // ==============================
+        function toggleComments(id) {
+            const el = document.getElementById(id);
+            el.classList.toggle("hidden");
+        }
+
+        // ==============================
+        // Toggle menu ⋯
+        // ==============================
+        function toggleMenu(btn) {
+            const menu = btn.nextElementSibling;
+            document.querySelectorAll(".post-menu").forEach(m => {
+                if (m !== menu) m.classList.add("hidden");
+            });
+            menu.classList.toggle("hidden");
+        }
+
+        document.addEventListener("click", function (e) {
+            document.querySelectorAll(".post-menu").forEach(menu => {
+                if (!menu.parentElement.contains(e.target)) {
+                    menu.classList.add("hidden");
+                }
+            });
+        });
+
+        // ==============================
+        // CSRF Token helper
+        // ==============================
+        function getToken() {
+            const token = document.querySelector("input[name='__RequestVerificationToken']");
+            return token ? token.value : "";
+        }
+
+        // ==============================
+        // LIKE Post (AJAX)
+        // ==============================
+        document.querySelectorAll(".reaction-btn").forEach(btn => {
+            btn.addEventListener("click", async function (e) {
+                e.preventDefault();
+
+                const form = this.closest("form");
+                const postId = parseInt(form.querySelector("input[name='postId']").value);
+
+                const response = await fetch("/Post/Like", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "RequestVerificationToken": getToken()
+                    },
+                    body: JSON.stringify(postId)
+                });
+
+                if (!response.ok) return;
+                const data = await response.json();
+
+                // --- Cập nhật hiển thị Like ---
+                const likeWrapper = document.getElementById(`like-wrapper-${postId}`);
+                const likeCountEl = document.getElementById(`like-count-${postId}`);
+
+                if (data.likes > 0) {
+                    likeWrapper.style.display = "flex";
+                    likeCountEl.innerText = data.showText;
+                } else {
+                    likeWrapper.style.display = "none";
+                    likeCountEl.innerText = "";
+                }
+
+                // cập nhật trạng thái nút
+                const icon = this.querySelector("i");
+                const label = this.querySelector("span:last-child");
+
+                if (data.isLiked) {
+                    icon.className = "fa-solid fa-thumbs-up";
+                    label.innerText = "Đã thích";
+                    this.classList.add("text-blue-600", "font-semibold");
+                    this.dataset.liked = "true";
+                } else {
+                    icon.className = "fa-regular fa-thumbs-up";
+                    label.innerText = "Thích";
+                    this.classList.remove("text-blue-600", "font-semibold");
+                    this.dataset.liked = "false";
+                }
+            });
+        });
+
+        // ==============================
+        // COMMENT (AJAX)
+        // ==============================
+        document.querySelectorAll(".comment-form").forEach(form => {
+            form.addEventListener("submit", async function (e) {
+                e.preventDefault();
+
+                const postId = this.dataset.postId;
+                const content = this.querySelector("input[name='content']").value.trim();
+                if (!content) return;
+
+                try {
+                    const res = await fetch("@Url.Action("Comment", "Post")", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "RequestVerificationToken": getToken()
+                        },
+                        body: JSON.stringify({ postId: parseInt(postId), content })
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        const commentSection = document.getElementById(`comment-section-${postId}`);
+                        const list = commentSection.querySelector(".space-y-3");
+
+                        // Thêm comment mới
+                        const html = `
+                                                    <div class="flex items-start space-x-3 mb-3" id="comment-${data.commentId}">
+                                                        <img src="${data.avatarUrl}" alt="Avatar" class="w-10 h-10 rounded-full object-cover" />
+                                                        <div class="flex-1">
+                                                            <div class="bg-gray-100 rounded-lg px-3 py-2 inline-block">
+                                                                <p class="font-semibold text-sm">${data.username}</p>
+                                                                <p class="text-sm text-gray-700">${data.content}</p>
+                                                            </div>
+                                                            <p class="text-xs text-gray-500 mt-1 ml-2">
+                                                                <span class="time-ago" data-time="${data.createdAt}"></span>
+                                                                <button type="button"
+                                                                     class="text-red-500 text-xs ml-2 delete-comment-btn"
+                                                                     data-comment-id="${data.commentId}"
+                                                                     data-post-id="${postId}">
+                                                                     🗑 Xóa
+                                                                 </button>
+                                                            </p>
+                                                        </div>
+                                                    </div>`;
+                        list.insertAdjacentHTML("beforeend", html);
+                        // 👉 Gọi lại timeAgo cho comment mới
+                        const newTimeEl = document.querySelector(`#comment-${data.commentId} .time-ago`);
+                        if (newTimeEl) {
+                            newTimeEl.textContent = timeAgo(newTimeEl.dataset.time);
+                        }
+
+                        // Clear input
+                        this.querySelector("input[name='content']").value = "";
+
+                        // Cập nhật số comment
+                        const commentCountEl = document.getElementById(`comment-count-${postId}`);
+                        if (commentCountEl) {
+                            commentCountEl.classList.remove("hidden");
+                            commentCountEl.innerHTML = `<a onclick="toggleComments('comment-section-${postId}')">${data.comments} bình luận</a>`;
+                        }
+                    }
+                } catch (err) {
+                    console.error("Comment error:", err);
+                }
+            });
+        });
+
+        // ==============================
+        // Modal & DELETE Comment/Post
+        // ==============================
+
+        // Bắt sự kiện click vào nút XÓA BÀI VIẾT
+        document.querySelectorAll(".delete-post-btn").forEach(btn => {
+            btn.addEventListener("click", function (e) {
+                e.preventDefault();
+                currentPostId = this.dataset.postId;
+                postReturnUrl = this.dataset.returnUrl;
+                deleteActionType = 'post';
+
+                // Thay đổi nội dung modal
+                modalMessageEl.innerText = "Bạn có chắc muốn xóa bài viết này?";
+
+                // Hiển thị modal
+                modal.classList.add("show");
+            });
+        });
+
+        // Bắt sự kiện click vào nút XÓA BÌNH LUẬN (Đã có sẵn)
+        document.addEventListener("click", async function (e) {
+            if (e.target.classList.contains("delete-comment-btn")) {
+                currentCommentId = e.target.dataset.commentId;
+                currentPostId = e.target.dataset.postId;
+                deleteActionType = 'comment';
+
+                // Thay đổi nội dung modal
+                modalMessageEl.innerText = "Bạn có chắc muốn xóa bình luận này?";
+
+                // Hiển thị modal xác nhận
+                modal.classList.add("show");
+
+                return; // Ngăn chặn hành động tiếp theo cho đến khi người dùng xác nhận
+            }
+        });
+
+        // Xử lý khi nhấn nút XÁC NHẬN (trong modal)
+        confirmDeleteBtn.addEventListener("click", async function () {
+            modal.classList.remove("show");
+
+            if (deleteActionType === 'comment' && currentCommentId && currentPostId) {
+                try {
+                    const res = await fetch("@Url.Action("DeleteComment", "Post")", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "RequestVerificationToken": getToken()
+                        },
+                        body: JSON.stringify(parseInt(currentCommentId))
+                    });
+                    const data = await res.json();
+
+                    if (data.success) {
+                        // Xóa khỏi DOM
+                        const el = document.getElementById(`comment-${currentCommentId}`);
+                        if (el) el.remove();
+
+                        // Update số comment
+                        const commentCountEl = document.getElementById(`comment-count-${currentPostId}`);
+                        if (commentCountEl) {
+                            if (data.comments === 0) {
+                                commentCountEl.classList.add("hidden");
+                            } else {
+                                commentCountEl.classList.remove("hidden");
+                                commentCountEl.innerHTML = `<a onclick="toggleComments('comment-section-${currentPostId}')">${data.comments} bình luận</a>`;
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.error("Delete comment error:", err);
+                }
+            } else if (deleteActionType === 'post' && currentPostId) {
+                // Xử lý xóa bài viết
+                try {
+                    const res = await fetch("/Post/Delete", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/x-www-form-urlencoded",
+                            "RequestVerificationToken": getToken()
+                        },
+                        body: `postId=${currentPostId}&returnUrl=${encodeURIComponent(postReturnUrl)}`
+                    });
+
+                    // Nếu thành công (ví dụ: nhận response status 200 hoặc redirect)
+                    if (res.ok || res.redirected) {
+                        // Xóa bài viết khỏi DOM
+                        const postEl = document.querySelector(`[data-post-id="${currentPostId}"]`).closest('article');
+                        if (postEl) {
+                            postEl.remove();
+                        }
+
+                        // Hoặc chuyển hướng nếu cần thiết
+                        if (res.redirected) {
+                            window.location.href = res.url;
+                        }
+                    } else {
+                        console.error("Delete post failed");
+                        // Hiển thị thông báo lỗi nếu cần
+                    }
+
+                } catch (err) {
+                    console.error("Delete post error:", err);
+                }
+            }
+
+            // Reset state
+            currentCommentId = null;
+            currentPostId = null;
+            deleteActionType = null;
+            postReturnUrl = null;
+        });
+
+        // Xử lý khi nhấn nút HỦY (trong modal)
+        cancelDeleteBtn.addEventListener("click", function () {
+            modal.classList.remove("show");
+            // Reset state
+            currentCommentId = null;
+            currentPostId = null;
+            deleteActionType = null;
+            postReturnUrl = null;
+        });
+
+
+        // ==============================
+        // SHARE FUNCTIONALITY
+        // ==============================
+        document.querySelectorAll(".share-btn").forEach(btn => {
+            btn.addEventListener("click", function () {
+                sharePostId = this.dataset.postId;
+                shareContentInput.value = ""; // Clear previous content
+                shareModal.classList.remove("hidden");
+            });
+        });
+
+        cancelShareBtn.addEventListener("click", function () {
+            shareModal.classList.add("hidden");
+            sharePostId = null;
+        });
+
+        confirmShareBtn.addEventListener("click", async function () {
+            if (!sharePostId) return;
+
+            const content = shareContentInput.value;
+            try {
+                const res = await fetch("/Post/Share", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                    body: `postId=${sharePostId}&content=${encodeURIComponent(content)}`
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    shareModal.classList.add("hidden");
+                    location.reload(); // Reload to show new post
+                } else {
+                    alert("Có lỗi xảy ra khi chia sẻ.");
+                }
+            } catch (err) {
+                console.error("Share error:", err);
+                alert("Lỗi kết nối.");
+            }
+        });
+
+
+        // ==============================
+        // STORY FUNCTIONALITY
+        // ==============================
+        let storiesData = [];
+        let currentStoryUserIndex = 0;
+        let currentStoryIndex = 0;
+        let storyTimer = null;
+        const STORY_DURATION = 5000; // 5 seconds
+
+        async function uploadStory(input) {
+            if (input.files && input.files[0]) {
+                const formData = new FormData();
+                formData.append("media", input.files[0]);
+
+                try {
+                    const res = await fetch("/Story/Create", {
+                        method: "POST",
+                        body: formData
+                    });
+                    if (res.ok) {
+                        alert("Đã đăng tin thành công!");
+                        loadStories();
+                    } else {
+                        alert("Lỗi khi đăng tin.");
+                    }
+                } catch (err) {
+                    console.error("Upload story error", err);
+                }
+            }
+        }
+
+        async function loadStories() {
+            try {
+                const res = await fetch("/Story/GetFriendStories");
+                const data = await res.json();
+                if (data.success) {
+                    storiesData = data.data;
+                    renderStoryBar();
+                }
+            } catch (err) {
+                console.error("Load stories error", err);
+            }
+        }
+
+        function renderStoryBar() {
+            const container = document.getElementById("story-bar");
+            // Keep the first item (Create Story)
+            const createCard = container.firstElementChild;
+            container.innerHTML = "";
+            container.appendChild(createCard);
+
+            storiesData.forEach((userStories, index) => {
+                const latestStory = userStories.stories[0]; // Show latest
+                const html = `
+                    <div class="flex-shrink-0 w-32 h-48 relative rounded-xl overflow-hidden cursor-pointer group shadow-sm hover:shadow-md transition-all border-2 border-blue-500 p-[2px]" onclick="openStoryViewer(${index})">
+                        <div class="w-full h-full rounded-lg overflow-hidden relative">
+                             ${latestStory.type === 'Video' 
+                                ? `<video src="${latestStory.url}" class="w-full h-full object-cover"></video>` 
+                                : `<img src="${latestStory.url}" class="w-full h-full object-cover transition duration-300 group-hover:scale-110">`
+                             }
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                            <div class="absolute top-2 left-2 w-8 h-8 rounded-full border-2 border-blue-500 overflow-hidden bg-white">
+                                <img src="/uploads/${userStories.avatar}" class="w-full h-full object-cover">
+                            </div>
+                            <div class="absolute bottom-2 left-2 right-2 text-white text-xs font-semibold truncate drop-shadow-md">${userStories.username}</div>
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('beforeend', html);
+            });
+        }
+
+        function openStoryViewer(userIndex) {
+            currentStoryUserIndex = userIndex;
+            currentStoryIndex = 0;
+            document.getElementById("storyViewerModal").classList.remove("hidden");
+            showStory();
+        }
+
+        function closeStoryViewer() {
+            document.getElementById("storyViewerModal").classList.add("hidden");
+            clearTimeout(storyTimer);
+             const video = document.getElementById("storyVideo");
+            video.pause();
+            video.src = "";
+        }
+
+
+
+        // --- PAUSE / RESUME ---
+        let isPaused = false;
+        let remainingTime = STORY_DURATION;
+        let pauseStartTime = 0;
+
+        function toggleStoryPlayback() {
+            if (isPaused) {
+                resumeStory();
+            } else {
+                pauseStory();
+            }
+        }
+
+        function updatePlayPauseIcon() {
+            const btn = document.getElementById("playPauseBtn");
+            if (isPaused) {
+                btn.innerHTML = '<i class="fa-solid fa-play"></i>';
+            } else {
+                btn.innerHTML = '<i class="fa-solid fa-pause"></i>';
+            }
+        }
+
+        function pauseStory() {
+            if (isPaused) return; // Already paused
+            isPaused = true;
+            updatePlayPauseIcon();
+            clearTimeout(storyTimer);
+            pauseStartTime = Date.now();
+            
+            // Pause video
+            const video = document.getElementById("storyVideo");
+            if (!video.classList.contains("hidden")) {
+                video.pause();
+            }
+
+            // Pause progress bar
+            const activeBar = document.querySelector("#storyProgressContainer > div > div[style*='width: 100%'][style*='transition']");
+            if (activeBar) {
+                const computedWidth = window.getComputedStyle(activeBar).width;
+                activeBar.style.transition = 'none';
+                activeBar.style.width = computedWidth;
+            }
+        }
+
+        function resumeStory() {
+            if (!isPaused) return;
+            isPaused = false;
+            updatePlayPauseIcon();
+            
+            // Resume timer
+             const video = document.getElementById("storyVideo");
+            if (!video.classList.contains("hidden")) {
+                video.play();
+            } else {
+                 storyTimer = setTimeout(nextStory, STORY_DURATION); 
+            }
+
+            // Resume progress bar (simple reset -> fill)
+            const activeBar = document.querySelector("#storyProgressContainer > div > div[style*='width']");
+             // Note: Re-animation logic is complex, for now we let it fill or just stay. 
+             // Ideally we should recalculate remaining time.
+        }
+
+        // --- DELETE ---
+        async function deleteCurrentStory() {
+            if (!confirm("Bạn có chắc muốn xóa tin này?")) return;
+            
+            const userStories = storiesData[currentStoryUserIndex];
+            const story = userStories.stories[currentStoryIndex];
+            
+            try {
+                const res = await fetch("/Story/Delete", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(story.id)
+                });
+                if (res.ok) {
+                    // Remove from local data
+                    userStories.stories.splice(currentStoryIndex, 1);
+                    if (userStories.stories.length === 0) {
+                        loadStories(); // Reload all if user has no stories left
+                        closeStoryViewer();
+                    } else {
+                        // Show next story or close if last
+                         if (currentStoryIndex >= userStories.stories.length) {
+                             currentStoryIndex = 0; 
+                         }
+                         showStory();
+                    }
+                } else {
+                    alert("Lỗi khi xóa tin.");
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function showStory() {
+            clearTimeout(storyTimer);
+            const userStories = storiesData[currentStoryUserIndex];
+            const story = userStories.stories[currentStoryIndex];
+
+            // Check ownership for delete button
+            const deleteBtn = document.getElementById("deleteStoryBtn");
+            if (userStories.userId === @(currentUserId ?? 0)) {
+                deleteBtn.classList.remove("hidden");
+            } else {
+                deleteBtn.classList.add("hidden");
+            }
+
+            // Update Header
+            document.getElementById("viewerAvatar").src = `/uploads/${userStories.avatar}`;
+            document.getElementById("viewerName").textContent = userStories.username;
+            document.getElementById("viewerTime").textContent = timeAgo(story.createdAt);
+
+            // Update progress bars
+            const progressContainer = document.getElementById("storyProgressContainer");
+            progressContainer.innerHTML = "";
+            userStories.stories.forEach((_, idx) => {
+                const bar = document.createElement("div");
+                bar.className = "flex-1 h-full bg-gray-600 rounded-full overflow-hidden";
+                const inner = document.createElement("div");
+                inner.className = "h-full bg-white transition-all duration-linear";
+                
+                if (idx < currentStoryIndex) {
+                    inner.style.width = "100%";
+                } else if (idx === currentStoryIndex) {
+                    inner.style.width = "0%";
+                    // Animate
+                    setTimeout(() => {
+                         inner.style.transition = `width ${STORY_DURATION}ms linear`;
+                         inner.style.width = "100%";
+                    }, 50);
+                } else {
+                    inner.style.width = "0%";
+                }
+                bar.appendChild(inner);
+                progressContainer.appendChild(bar);
+            });
+
+            // Show Media
+            const img = document.getElementById("storyImage");
+            const video = document.getElementById("storyVideo");
+            const storyContent = document.getElementById("storyContent");
+
+            storyContent.textContent = story.content || "";
+
+            if (story.type === 'Video') {
+                img.classList.add("hidden");
+                video.classList.remove("hidden");
+                video.src = story.url;
+                video.play();
+                
+                // Video ends -> Next
+                video.onended = nextStory;
+            } else {
+                video.classList.add("hidden");
+                video.pause();
+                img.classList.remove("hidden");
+                img.src = story.url;
+
+                // Auto advance
+                storyTimer = setTimeout(nextStory, STORY_DURATION);
+            }
+        }
+
+        // Init
+        if (document.getElementById("story-bar")) {
+            loadStories();
+        }
+
+
+        // ==============================
+        // Hiển thị "time ago"
+        // ==============================
+        function timeAgo(date) {
+            const now = new Date();
+            const past = new Date(date);
+            const diff = Math.floor((now - past) / 1000);
+
+            if (diff < 60) return `Vừa xong`;
+            if (diff < 3600) return `${Math.floor(diff / 60)} phút trước`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)} giờ trước`;
+            if (diff < 2592000) return `${Math.floor(diff / 86400)} ngày trước`;
+            return past.toLocaleDateString("vi-VN");
+        }
+
+        document.querySelectorAll(".time-ago").forEach(el => {
+            el.textContent = timeAgo(el.dataset.time);
+        });
+    </script>
+}

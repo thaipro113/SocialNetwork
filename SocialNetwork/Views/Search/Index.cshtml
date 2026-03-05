@@ -1,0 +1,205 @@
+﻿@model List<SocialNetwork.Models.User>
+@{
+    ViewData["Title"] = "Kết quả tìm kiếm";
+    Layout = "~/Views/Shared/Temp.cshtml";
+}
+
+<div class="max-w-6xl mx-auto px-4 py-10">
+    <h2 class="text-4xl font-bold text-center mb-12 text-gray-800 dark:text-white">
+        Kết quả tìm kiếm cho:
+        <span class="text-blue-600 font-extrabold">"@ViewBag.Keyword"</span>
+    </h2>
+
+    @if (Model == null || !Model.Any())
+    {
+        <div class="text-center py-20">
+            <div class="text-9xl mb-6 text-gray-300"><i class="fa-solid fa-magnifying-glass"></i></div>
+            <p class="text-2xl text-gray-600 dark:text-gray-400">Không tìm thấy người dùng nào</p>
+            <p class="text-gray-500 mt-3">Hãy thử từ khóa khác nhé!</p>
+        </div>
+    }
+    else
+    {
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-7">
+            @foreach (var user in Model)
+            {
+                var avatarUrl = string.IsNullOrEmpty(user.ImageUrl)
+                ? Url.Content("~/Uploads/default-avatar.png")
+                : Url.Content($"~/Uploads/{user.ImageUrl}");
+
+                <div class="group bg-white dark:bg-gray-800 rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-400 border border-gray-200 dark:border-gray-700 overflow-hidden">
+                    <!-- Card hover effect: 3D -->
+                    <div class="relative p-6 text-center transform group-hover:-translate-y-3 transition-all duration-400">
+                        <!-- Avatar lớn + online dot -->
+                        <div class="relative inline-block mb-5">
+                            <a href="@Url.Action("Profile","User", new { id = user.UserId })">
+                                <img src="@avatarUrl" alt="@user.FullName"
+                                     class="w-28 h-28 rounded-full object-cover border-4 border-white dark:border-gray-800 shadow-2xl ring-4 ring-transparent group-hover:ring-purple-400 transition-all duration-300" />
+                            </a>
+                        </div>
+
+                        <!-- Tên + Email -->
+                        <a href="@Url.Action("Profile","User", new { id = user.UserId })"
+                           class="block mb-2 text-xl font-bold text-gray-900 dark:text-white hover:text-purple-600 transition-colors">
+                            @user.FullName
+                        </a>
+                        <p class="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                            @user.Email
+                        </p>
+
+                        <!-- Nút hành động -->
+                        <div id="actionBtn-@user.UserId" class="flex justify-center">
+                            <div class="w-40 h-11 bg-gray-200 dark:bg-gray-700 rounded-full animate-pulse"></div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<style>
+    /* Online dot đẹp hơn */
+    .online-dot {
+        background-color: #10b981;
+        box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.3);
+    }
+</style>
+
+@section Scripts {
+    <script>
+        async function checkAndUpdateButton(userId) {
+            const actionDiv = document.getElementById(`actionBtn-${userId}`);
+            if (!actionDiv) return;
+
+            try {
+                const response = await fetch(`/Friend/CheckFriendStatus?toUserId=${userId}`);
+                const data = await response.json();
+
+                if (!data.success) {
+                    actionDiv.innerHTML = `<span class="text-red-500 text-sm font-medium">Lỗi kết nối</span>`;
+                    return;
+                }
+
+                let html = '';
+                switch (data.status) {
+                    case "friends":
+                        html = `
+                                    <div class="flex items-center justify-center gap-2 px-6 py-3 bg-emerald-500 text-white font-bold rounded-full shadow-lg cursor-default">
+                                        <i class="fa-solid fa-check text-lg"></i>
+                                        <span>Đã là bạn bè</span>
+                                    </div>`;
+                        break;
+
+                    case "outgoing_request":
+                        html = `
+                                    <div class="flex items-center justify-center gap-2 px-6 py-3 bg-gray-500 text-white font-bold rounded-full cursor-not-allowed opacity-90">
+                                        <i class="fa-solid fa-clock"></i>
+                                        <span>Đã gửi lời mời</span>
+                                    </div>`;
+                        break;
+
+                    case "incoming_request":
+                        const reqRes = await fetch(`/Friend/GetRequestId?toUserId=${userId}`);
+                        const reqData = await reqRes.json();
+                        if (reqData.success && reqData.requestId) {
+                            html = `
+                                        <div class="flex gap-3">
+                                            <button onclick="respondRequest(${reqData.requestId}, true)"
+                                                    class="px-5 py-3 bg-cyan-500 hover:bg-cyan-600 text-white font-bold rounded-full shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-200">
+                                                Chấp nhận
+                                            </button>
+                                            <button onclick="respondRequest(${reqData.requestId}, false)"
+                                                    class="px-5 py-3 bg-gray-400 hover:bg-gray-500 text-white font-medium rounded-full transition-all">
+                                                Từ chối
+                                            </button>
+                                        </div>`;
+                        }
+                        break;
+
+                    case "none":
+                        html = `
+                                    <button id="addFriendBtn-${userId}"
+                                            class="px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-full shadow-lg hover:shadow-xl transform hover:scale-110 transition-all duration-300">
+                                        <i class="fa-solid fa-user-plus mr-2"></i>Thêm bạn bè
+                                    </button>`;
+                        break;
+                }
+
+                actionDiv.innerHTML = html;
+
+                // Gắn sự kiện cho nút Thêm bạn bè
+                const addBtn = document.getElementById(`addFriendBtn-${userId}`);
+                if (addBtn) {
+                    addBtn.onclick = () => sendFriendRequest(userId);
+                }
+
+            } catch (err) {
+                console.error(err);
+                actionDiv.innerHTML = `<span class="text-red-500">Lỗi mạng</span>`;
+            }
+        }
+
+        async function sendFriendRequest(toUserId) {
+            const actionDiv = document.getElementById(`actionBtn-${toUserId}`);
+            const btn = document.getElementById(`addFriendBtn-${toUserId}`);
+            if (!btn) return;
+
+            const originalText = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin mr-2"></i>Đang gửi...`;
+
+            try {
+                const response = await fetch("/Friend/SendRequest", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                    body: `toUserId=${toUserId}`
+                });
+                const result = await response.json();
+
+                if (result.success) {
+                    actionDiv.innerHTML = `
+                                <div class="flex items-center justify-center gap-2 px-6 py-3 bg-gray-500 text-white font-bold rounded-full cursor-not-allowed opacity-90">
+                                    <i class="fa-solid fa-clock"></i>
+                                    <span>Đã gửi lời mời</span>
+                                </div>`;
+                } else {
+                    alert(result.message || "Không thể gửi lời mời");
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            } catch (err) {
+                alert("Lỗi kết nối");
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        async function respondRequest(requestId, accept) {
+            const url = accept ? "/Friend/Accept" : "/Friend/Decline";
+            try {
+                const res = await fetch(url, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(requestId)
+                });
+                const data = await res.json();
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert(data.message || "Có lỗi xảy ra");
+                }
+            } catch (err) {
+                alert("Lỗi mạng");
+            }
+        }
+
+        // Load khi trang sẵn sàng
+        document.addEventListener("DOMContentLoaded", () => {
+        @foreach (var user in Model)
+        {
+            @:checkAndUpdateButton(@user.UserId);
+        }
+                });
+    </script>
+}

@@ -1,0 +1,47 @@
+mkdir tenduan
+cd tenduan
+dotnet new web , mvc , webapp
+code .
+
+(cách 1)Scaffold-DbContext "Data Source=thaipro113\SQLEXPRESS;Initial Catalog=Bank;Integrated Security=True;Trust Server Certificate=True" Microsoft.EntityFrameworkCore.SqlServer -OutputDir Models
+
+(cách 2)dotnet ef dbcontext scaffold -o Models -d "Data Source=thaipro113\SQLEXPRESS;Initial Catalog=EnglishLearningDB;Integrated Security=True;Trust Server Certificate=True
+" "Microsoft.EntityFrameworkCore.SqlServer"
+
+Server=thaipro113\\SQLEXPRESS;Database=Shopping;Trusted_Connection=True;TrustServerCertificate=True;
+
+dotnet add package System.Data.SqlClient
+dotnet add package Microsoft.EntityFrameworkCore
+dotnet add package Microsoft.EntityFrameworkCore.SqlServer
+dotnet add package Microsoft.EntityFrameworkCore.Design
+dotnet add package Microsoft.Extensions.DependencyInjection
+dotnet add package Microsoft.Extensions.Logging.Console
+dotnet add package Microsoft.EntityFrameworkCore.Design
+dotnet add package Microsoft.EntityFrameworkCore.Tools.DotNet
+dotnet tool install --global dotnet-ef
+
+
+dotnet ef migrations add V0(ten migration)
+dotnet ef migrations list
+dotnet ef migrations remove (xoa file cuoi cung)
+dotnet ef migrations script
+dotnet ef migrations script name1 name2
+dotnet ef migrations script -o migrations.sql
+dotnet ef database update (lay mg cuoi cung con nếu muon quay trở lại mg trước thì ghi ten mg trước)
+dotnet ef database drop -f (xoa toan bo database)
+
+npm install bootstrap
+npm install jquery
+npm i popper.js
+
+USE master;
+GO
+ALTER DATABASE EnglishLearningDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+DROP DATABASE EnglishLearningDB;
+
+- 200 OK: Thành công
+- 201 Created: Tạo mới thành công
+- 400: Lỗi cú pháp yêu cầu
+- 401: Chưa xác thực
+- 404: Không tìm thấy
+- 500: Lỗi hệ thống

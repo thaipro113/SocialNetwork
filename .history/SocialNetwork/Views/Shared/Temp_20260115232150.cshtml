@@ -1,0 +1,986 @@
+﻿<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SocialVibe - @ViewData["Title"]</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            bg: '#111827',
+                            card: '#1F2937',
+                            text: '#F9FAFB'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <script>
+        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+    </script>
+    <link href="~/css/layout.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+    <!-- Header -->
+    <header class="gradient-bg dark:bg-gray-800 dark:bg-none shadow-lg sticky top-0 z-50 transition-colors duration-300">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center space-x-4">
+                    <!-- Nút mobile -->
+                    <button id="mobileMenuBtn"
+                            class="md:hidden text-white text-2xl focus:outline-none">
+                        ☰
+                    </button>
+                    <div class="text-white text-2xl font-bold">
+                        <a asp-controller="Post" asp-action="Index">SocialVibe</a>
+                    </div>
+                    <div class="hidden md:block relative">
+                        <form method="get" action="/Search/Index">
+                            <input name="keyword"
+                                   type="text"
+                                   placeholder="Tìm kiếm người dùng..."
+                                   class="bg-white/20 text-white placeholder-white/70 rounded-full px-4 py-2 w-64 focus:outline-none focus:ring-2 focus:ring-white/50" />
+                            <button type="submit" class="absolute right-3 top-2.5 text-white/70"><i class="fa-solid fa-magnifying-glass"></i></button>
+                        </form>
+                    </div>
+                </div>
+                <nav class="hidden md:flex items-center space-x-6">
+                    <a href="@Url.Action("Index", "Post")" class="text-white hover:text-black transition-colors">Trang chủ</a>
+                    <a href="@Url.Action("Index", "Friend")" class="text-white hover:text-black transition-colors">Bạn bè</a>
+                    <a href="@Url.Action("Index", "Chat")" class="text-white hover:text-black transition-colors">Tin nhắn</a>
+                    <a href="@Url.Action("Index", "Notification")" class="text-white hover:text-black transition-colors">Thông báo</a>
+                </nav>
+                <nav class="flex items-center space-x-2 md:space-x-6">
+                    <!-- Dark Mode Toggle -->
+                    <button id="theme-toggle" class="text-white hover:bg-white/10 p-3 rounded-full transition-all duration-200">
+                        <!-- Icon sẽ được JS tự động thay đổi -->
+                        <i id="theme-icon" class="fa-solid fa-moon text-xl"></i>
+                    </button>
+                    @using Microsoft.AspNetCore.Http
+                    @inject IHttpContextAccessor HttpContextAccessor
+                    @if (HttpContextAccessor.HttpContext.Session.GetInt32("UserId") != null)
+
+                    {
+                        <a href="javascript:void(0)" class="text-white hover:text-white/80 transition-colors relative" onclick="toggleMessageDropdown()">
+                            <span><i class="fa-brands fa-facebook-messenger"></i></span>
+                            <span id="message-count"
+                                  class="absolute top-[-13px] right-[-10px] min-w-[20px] h-5 bg-red-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center hidden shadow-md z-10">
+                            </span>
+                        </a>
+
+                        <a href="javascript:void(0)" class="text-white hover:text-white/80 transition-colors relative" onclick="toggleNotificationDropdown()">
+                            <span><i class="fa-regular fa-bell"></i></span>
+                            <span id="notification-count"
+                                  class="absolute top-[-13px] right-[-10px] min-w-[20px] h-5 bg-red-600 text-white text-[11px] font-bold rounded-full flex items-center justify-center hidden shadow-md z-10">
+                            </span>
+                        </a>
+                        var username = HttpContextAccessor.HttpContext.Session.GetString("FullName");
+
+                        var avatarFileName = HttpContextAccessor.HttpContext.Session.GetString("ImageUrl");
+
+                        var avatarUrl = string.IsNullOrEmpty(avatarFileName)
+
+                        ? Url.Content("~/Uploads/default-avatar.png")
+
+                        : Url.Content($"~/Uploads/{avatarFileName}");
+                        <div class="relative">
+                            <div class="flex items-center space-x-2 cursor-pointer" onclick="toggleDropdown()">
+                                <div class="relative">
+                                    @if (!string.IsNullOrEmpty(avatarUrl))
+
+                                    {
+                                        <img src="@avatarUrl" alt="Avatar" class="w-10 h-10 rounded-full object-cover hover:ring-2 hover:ring-white/50 transition-all" />
+                                    }
+
+                                    else
+
+                                    {
+                                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='40' height='40' viewBox='0 0 40 40'%3E%3Ccircle cx='20' cy='20' r='20' fill='%23f093fb'/%3E%3Ctext x='20' y='26' text-anchor='middle' fill='white' font-size='16' font-weight='bold'%3E@(string.IsNullOrEmpty(username) ? "U" : username.FirstOrDefault().ToString().ToUpper())%3C/text%3E%3C/svg%3E" alt="Avatar" class="w-10 h-10 rounded-full hover:ring-2 hover:ring-white/50 transition-all" />
+                                    }
+                                    <div class="online-dot absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white"></div>
+                                </div>
+                                <span class="text-white font-semibold hidden md:inline"><b>@username</b></span>
+                                <span class="text-white/70">▼</span>
+                            </div>
+                            <div id="userDropdown" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-xl shadow-lg card-hover z-50 border border-gray-100 dark:border-gray-700">
+                                <div class="py-2">
+                                    <a asp-controller="User" asp-action="Profile" asp-route-id="@HttpContextAccessor.HttpContext.Session.GetInt32("UserId")"
+                                       class="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                                        <i class="fa-solid fa-user mr-2"></i> Xem hồ sơ
+                                    </a>
+                                    <a href="@Url.Action("Logout", "Account")" class="block px-4 py-2 text-sm text-red-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"><i class="fa-solid fa-arrow-right-from-bracket mr-2"></i>Đăng xuất</a>
+                                </div>
+                            </div>
+                            <div id="notificationDropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg card-hover z-50 border border-gray-100 dark:border-gray-700">
+                                <div class="py-2">
+                                    <div style="display:flex;" class="justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2">
+                                        <h3 class="px-4 py-2 text-lg font-semibold text-gray-900 dark:text-white">Thông báo</h3>
+                                        <a href="@Url.Action("Index","Notification")"><h3 class="py-2 px-4 text-sm font-semibold text-blue-500 hover:text-blue-600">Xem tất cả</h3></a>
+                                    </div>
+                                    <div id="notification-list" class="max-h-96 overflow-y-auto">
+                                        <!-- Thông báo sẽ được thêm động vào đây -->
+                                    </div>
+                                    <div class="px-4 py-2">
+                                        <a href="#" class="block text-sm text-blue hover:bg-gray-100 transition-colors" onclick="markAllAsRead()">Đánh dấu tất cả là đã đọc</a>
+                                        <a href="#" id="deleteAllBtn" class="block text-sm text-red-600 hover:bg-gray-100 transition-colors mt-2" onclick="deleteAllNotifications()">Xóa tất cả</a>
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="messageDropdown" class="hidden absolute right-0 mt-2 w-80 bg-white dark:bg-gray-800 rounded-xl shadow-lg card-hover z-50 border border-gray-100 dark:border-gray-700">
+                                <div class="py-2">
+                                    <div style="display:flex;" class="justify-between items-center border-b border-gray-100 dark:border-gray-700 pb-2">
+                                        <h3 class="px-4 py-1.5 text-lg font-semibold text-gray-900 dark:text-white">Tin nhắn chưa đọc</h3>
+                                        <a href="@Url.Action("Index","Chat")"><h3 class="py-2 px-4 text-sm font-semibold text-blue-500 hover:text-blue-600">Xem tất cả</h3></a>
+                                    </div>
+                                    <div id="message-list" class="max-h-96 overflow-y-auto">
+                                        <!-- Tin nhắn chưa đọc sẽ được thêm động vào đây -->
+                                    </div>
+                                    <div class="px-4 py-2">
+                                        <a href="#" class="block text-sm text-blue hover:bg-gray-100 transition-colors" onclick="markAllMessagesAsRead()">Đánh dấu tất cả là đã đọc</a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+
+                    else
+
+                    {
+                         <a href="@Url.Action("Login", "Account")" class="bg-white text-blue-600 hover:bg-gray-100 w-10 h-10 md:w-auto md:h-auto md:px-5 md:py-2 flex items-center justify-center rounded-full font-semibold shadow-md transition-all transform hover:scale-105">
+                             <i class="fa-solid fa-arrow-right-to-bracket md:hidden text-lg mr-2"></i>
+                             <span class="hidden md:inline">Đăng nhập</span>
+                         </a>
+                    }
+                </nav>
+            </div>
+        </div>
+    </header>
+    <!-- MENU MOBILE -->
+    <div id="mobileMenu"
+         class="fixed inset-0 bg-black/60 z-50 hidden opacity-0 transition-all duration-300">
+        <div id="mobileMenuPanel"
+             class="bg-white w-64 h-full p-6 shadow-lg transform -translate-x-full transition-transform duration-300 ease-out">
+            <button id="closeMobileMenu" class="text-gray-600 text-2xl mb-6">✕</button>
+            <!-- Thanh tìm kiếm nổi bật -->
+            <div class="p-4 border-b border-gray-200 dark:border-gray-700">
+                <form method="get" asp-controller="Search" asp-action="Index" class="relative">
+                    <input name="keyword" type="text" placeholder="Tìm kiếm "
+                           class="w-full px-5 py-4 pl-12 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-full focus:outline-none focus:ring-4 focus:ring-purple-500/50 transition-all text-base"
+                           autocomplete="off" />
+                    <button type="submit" class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">
+                    </button>
+                </form>
+            </div>
+            <nav class="space-y-4 text-lg font-semibold">
+                <a href="@Url.Action("Index","Post")" class="block text-gray-800 hover:text-blue-600"><i class="fa-solid fa-house mr-2"></i> Trang chủ</a>
+                <a href="@Url.Action("Profile","User")" class="block text-gray-800 hover:text-blue-600"><i class="fa-solid fa-user mr-2"></i> Hồ sơ</a>
+                <a href="@Url.Action("Index","Friend")" class="block text-gray-800 hover:text-blue-600"><i class="fa-solid fa-user-group mr-2"></i> Bạn bè</a>
+                <a href="@Url.Action("Index","Chat")" class="block text-gray-800 hover:text-blue-600"><i class="fa-brands fa-facebook-messenger mr-2"></i> Tin nhắn</a>
+                <a href="@Url.Action("Index","Notification")" class="block text-gray-800 hover:text-blue-600"><i class="fa-solid fa-bell mr-2"></i> Thông báo</a>
+                @if (HttpContextAccessor.HttpContext.Session.GetInt32("UserId") != null)
+
+                {
+                    <a href="@Url.Action("Logout","Account")" class="block text-red-600 hover:text-red-800"><i class="fa-solid fa-arrow-right-from-bracket"></i> Đăng xuất</a>
+                }
+
+                else
+
+                {
+                    <a href="@Url.Action("Login","Account")" class="block text-blue-600 hover:text-blue-800"><i class="fa-solid fa-arrow-right-to-bracket"></i> Đăng nhập</a>
+                }
+            </nav>
+        </div>
+    </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        @RenderBody()
+    </div>
+    <!-- Footer -->
+    <footer class="gradient-bg text-white shadow-sm mt-8">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Logo and Description -->
+                <div class="flex flex-col space-y-4">
+                    <div class="text-2xl font-bold">SocialVibe</div>
+                    <p class="text-sm text-white/80">
+                        Kết nối bạn bè, chia sẻ khoảnh khắc, và khám phá thế giới với SocialVibe.
+                    </p>
+                    <div class="flex space-x-4">
+                        <a href="#" class="text-white/70 hover:text-white transition-colors">📘</a>
+                        <a href="#" class="text-white/70 hover:text-white transition-colors">🐦</a>
+                        <a href="#" class="text-white/70 hover:text-white transition-colors">📸</a>
+                        <a href="#" class="text-white/70 hover:text-white transition-colors">🎥</a>
+                    </div>
+                </div>
+                <!-- Navigation Links -->
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">Liên kết nhanh</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li><a href="@Url.Action("Index", "Home")" class="text-white/80 hover:text-white transition-colors">Trang chủ</a></li>
+                        <li><a href="#" class="text-white/80 hover:text-white transition-colors">Giới thiệu</a></li>
+                        <li><a href="#" class="text-white/80 hover:text-white transition-colors">Liên hệ</a></li>
+                        <li><a href="@Url.Action("Privacy", "Home")" class="text-white/80 hover:text-white transition-colors">Chính sách bảo mật</a></li>
+                        <li><a href="#" class="text-white/80 hover:text-white transition-colors">Điều khoản dịch vụ</a></li>
+                    </ul>
+                </div>
+                <!-- Contact Info -->
+                <div>
+                    <h4 class="text-lg font-semibold mb-4">Liên hệ</h4>
+                    <ul class="space-y-2 text-sm">
+                        <li class="text-white/80">Email: <a href="mailto:support@socialvibe.com" class="hover:text-white transition-colors">support@socialvibe.com</a></li>
+                        <li class="text-white/80">Hotline: <span>+84 123 456 789</span></li>
+                        <li class="text-white/80">Địa chỉ: 123 Đường Công nghệ, TP.HCM, Việt Nam</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="mt-8 pt-6 border-t border-white/20 text-center text-sm text-white/70">
+                &copy; 2025 SocialNetwork. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Modal: Cuộc gọi bị từ chối -->
+    <div id="callRejectedModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm animate-bounce-in">
+            <div class="text-6xl mb-4">
+                <i class="fa-solid fa-phone-slash text-red-500"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Cuộc gọi bị từ chối</h3>
+            <p class="text-gray-600 mb-6">Người dùng không muốn nhận cuộc gọi lúc này.</p>
+            <button onclick="closeCallRejectedModal()" class="px-6 py-3 bg-gray-600 text-white rounded-full hover:bg-gray-700 transition">
+                Đóng
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal: Cuộc gọi đã kết thúc -->
+    <div id="callEndedModal" class="fixed inset-0 bg-black bg-opacity-75 hidden z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm animate-bounce-in">
+            <div class="text-6xl mb-4">
+                <i class="fa-solid fa-phone-slash text-orange-500"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-gray-800 mb-2">Cuộc gọi đã kết thúc</h3>
+            <p class="text-gray-600 mb-6">Cuộc gọi video đã được kết thúc.</p>
+            <button onclick="closeCallEndedModal()" class="px-6 py-3 bg-gray-600 text-white rounded-full hover:bg-gray-700 transition">
+                Đóng
+            </button>
+        </div>
+    </div>
+    <!-- Video Call Modal (Global) -->
+    <partial name="_VideoCallModal" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+    <script>
+        // ========================================
+        // 1. SIGNALR CONNECTIONS
+        // ========================================
+        const chatConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/chatHub")
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+        window.chatConnection = chatConnection; // Expose globally
+
+        const notificationConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/notificationHub")
+            .configureLogging(signalR.LogLevel.Information)
+            .build();
+
+        // Start connections
+        const startPromise = Promise.all([
+            chatConnection.start().catch(err => console.error("ChatHub Error:", err)),
+            notificationConnection.start().catch(err => console.error("NotificationHub Error:", err))
+        ]).then(() => {
+            console.log("SignalR Hubs Connected");
+        });
+        window.chatConnectionPromise = startPromise; // Expose promise globally
+
+        // ========================================
+        // 2. SIGNALR EVENT LISTENERS
+        // ========================================
+        chatConnection.on("ReceiveMessage", () => {
+            updateMessageCount();
+            if (!document.getElementById("messageDropdown").classList.contains("hidden")) {
+                loadUnreadMessages();
+            }
+        });
+        // Trong <script> của View
+        chatConnection.on("UpdateLastMessage", (data) => {
+            const { conversationId, lastMessage } = data;
+            const msgEl = document.getElementById(`msg-${conversationId}`);
+            const timeEl = document.getElementById(`time-${conversationId}`);
+
+            if (!msgEl) return;
+
+            if (lastMessage) {
+                const isMine = lastMessage.senderId == myId;
+                msgEl.innerHTML = isMine
+                    ? `<strong>Bạn:</strong> ${lastMessage.content}`
+                    : lastMessage.content;
+                timeEl.textContent = new Date(lastMessage.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+                msgEl.innerHTML = "Không có tin nhắn";
+                timeEl.textContent = "";
+            }
+
+            // Đưa lên đầu nếu đang mở
+            if (currentConversationId == conversationId) {
+                moveConversationToTop(conversationId);
+            }
+        });
+        notificationConnection.on("ReceiveNotification", (notification) => {
+            updateNotificationCount();
+            if (!document.getElementById("notificationDropdown").classList.contains("hidden")) {
+                prependNotification(notification);
+            }
+        });
+
+        notificationConnection.on("FriendAccepted", (data) => {
+            showToast(data.message);
+            updateNotificationCount();
+            loadFriendSummary(); // Cập nhật lại gợi ý + bạn bè
+        });
+
+        notificationConnection.on("RemoveNotification", (notiId) => {
+            document.querySelector(`[data-notification-id="${notiId}"]`)?.remove();
+            updateNotificationCount();
+        });
+
+        // ========================================
+        // 3. DOM READY & INITIAL LOAD
+        // ========================================
+        document.addEventListener("DOMContentLoaded", () => {
+            updateNotificationCount();
+            updateMessageCount();
+            loadFriendSummary();
+            observeCardAnimations();
+        });
+
+        function observeCardAnimations() {
+            const cards = document.querySelectorAll(".card-hover");
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.style.opacity = "1";
+                        entry.target.style.transform = "translateY(0)";
+                    }
+                });
+            }, { threshold: 0.1 });
+
+            cards.forEach(card => observer.observe(card));
+        }
+
+        // ========================================
+        // 4. NOTIFICATION SYSTEM
+        // ========================================
+        function updateNotificationCount() {
+            fetch("/Notification/GetNotifications")
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    const badge = document.getElementById("notification-count");
+                    const count = data.unread;
+                    badge.textContent = count > 99 ? "99+" : count;
+                    badge.style.display = count > 0 ? "flex" : "none";
+                });
+        }
+
+        function toggleNotificationDropdown() {
+            const dropdown = document.getElementById("notificationDropdown");
+            dropdown.classList.toggle("hidden");
+
+            if (!dropdown.classList.contains("hidden")) {
+                loadNotifications();
+            }
+        }
+
+        function loadNotifications() {
+            fetch("/Notification/GetNotifications")
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    const list = document.getElementById("notification-list");
+                    list.innerHTML = "";
+                    const deleteAllBtn = document.getElementById("deleteAllBtn");
+                    deleteAllBtn.style.display = data.data.length > 0 ? "block" : "none";
+
+                    // API trả về mới → cũ → cần đảo ngược để prepend đúng thứ tự
+                    [...data.data].reverse().forEach(notif => prependNotification(notif));
+                });
+        }
+
+        function prependNotification(n) {
+            const notifId = n.Id ?? n.id;
+            const type = n.Type ?? n.type;
+            const message = n.Message ?? n.message;
+            const isRead = n.IsRead ?? n.isRead;
+            const createdAt = n.createdAt ?? new Date(n.CreatedAt).toLocaleString('vi-VN');
+            const postId = n.PostId ?? n.postId ?? 0;
+            const requestId = n.FriendRequestId ?? n.friendRequestId ?? 0;
+            const from = n.fromUser ?? n.FromUser ?? {};
+            const avatar = from.avatar ?? from.Avatar ?? '/Uploads/default-avatar.png';
+            const fullName = from.fullName ?? from.name ?? from.FullName ?? from.Name ?? 'Người dùng';
+
+            const list = document.getElementById("notification-list");
+            const item = document.createElement("div");
+            item.className = `p-3 border-b transition cursor-pointer ${!isRead ? "bg-blue-50" : ""}`;
+            item.dataset.notificationId = notifId;
+
+            if (type === "friend_request") {
+                item.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <img src="${avatar}" class="w-10 h-10 rounded-full flex-shrink-0 object-cover">
+                                <div class="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-1 border-2 border-white dark:border-gray-800 flex items-center justify-center w-5 h-5">
+                                    <i class="fa-solid fa-user-plus text-white text-[10px]"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-gray-700"><b>${fullName}</b> ${message}</div>
+                                <div class="text-xs text-gray-400">${createdAt}</div>
+                                <div class="mt-2 flex gap-2">
+                                    <button onclick="acceptFriend(${requestId}, ${notifId})"
+                                            class="px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded hover:bg-green-600 transition">
+                                        Chấp nhận
+                                    </button>
+                                    <button onclick="declineFriend(${requestId}, ${notifId})"
+                                            class="px-3 py-1.5 bg-gray-400 text-white text-xs font-medium rounded hover:bg-gray-500 transition">
+                                        Từ chối
+                                    </button>
+                                </div>
+                            </div>
+                            <button onclick="event.stopPropagation(); deleteNotification(${notifId})"
+                                    class="text-gray-400 hover:text-red-600 transition ml-2">✕</button>
+                        </div>`;
+                item.onclick = function (e) {
+                    if (!e.target.closest('button')) {
+                        markNotificationAsRead(notifId);
+                        window.location.href = "/Friend/Index"; // Consistent redirect
+                    }
+                };
+            } else {
+                // Determine icon
+                let icon = '<i class="fa-solid fa-bell text-white text-[10px]"></i>';
+                let bg = 'bg-gray-500';
+                
+                if (type === 'comment') {
+                    icon = '<i class="fa-solid fa-comment text-white text-[10px]"></i>';
+                    bg = 'bg-green-500';
+                } else if (type === 'reply') {
+                    icon = '<i class="fa-solid fa-reply text-white text-[10px]"></i>';
+                    bg = 'bg-purple-500';
+                } else if (type === 'like') { 
+                     icon = '<i class="fa-solid fa-heart text-white text-[10px]"></i>';
+                     bg = 'bg-red-500';
+                }
+
+                item.innerHTML = `
+                        <div class="flex items-center gap-3 cursor-pointer" onclick="goToPost(${postId})">
+                            <div class="relative">
+                                <img src="${avatar}" class="w-10 h-10 rounded-full flex-shrink-0 object-cover">
+                                <div class="absolute -bottom-1 -right-1 ${bg} rounded-full p-1 border-2 border-white dark:border-gray-800 flex items-center justify-center w-5 h-5">
+                                    ${icon}
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-gray-700"><b>${fullName}</b> ${message}</div>
+                                <div class="text-xs text-gray-400">${createdAt}</div>
+                            </div>
+                            <button onclick="event.stopPropagation(); deleteNotification(${notifId})"
+                                    class="text-gray-400 hover:text-red-600 transition">✕</button>
+                        </div>`;
+                item.onclick = (e) => {
+                    if (e.target.tagName !== 'BUTTON') {
+                        markNotificationAsRead(notifId);
+                        goToPost(postId);
+                    }
+                };
+            }
+            list.prepend(item);
+        }
+
+        function markNotificationAsRead(id) {
+            fetch(`/Notification/MarkAsRead?id=${id}`, { method: "POST" })
+                .then(r => r.json())
+                .then(d => { if (d.success) updateNotificationCount(); });
+        }
+
+        function markAllAsRead() {
+            fetch("/Notification/MarkAsRead", { method: "POST" })
+                .then(r => r.json())
+                .then(d => { if (d.success) { updateNotificationCount(); toggleNotificationDropdown(); } });
+        }
+
+        function deleteNotification(id) {
+            fetch(`/Notification/Delete?id=${id}`, { method: "POST" })
+                .then(r => r.json())
+                .then(d => { if (d.success) { updateNotificationCount(); } });
+        }
+
+        function deleteAllNotifications() {
+            fetch("/Notification/DeleteAll", { method: "POST" })
+                .then(r => r.json())
+                .then(d => { if (d.success) { updateNotificationCount(); toggleNotificationDropdown(); } });
+        }
+
+        function acceptFriend(requestId, notiId) {
+            fetch('/Friend/Accept', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestId) })
+                .then(r => r.json())
+                .then(d => { if (d.success) { document.querySelector(`[data-notification-id="${notiId}"]`)?.remove(); updateNotificationCount(); loadFriendSummary(); } });
+        }
+
+        function declineFriend(requestId, notiId) {
+            fetch('/Friend/Decline', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestId) })
+                .then(r => r.json())
+                .then(d => { if (d.success) { document.querySelector(`[data-notification-id="${notiId}"]`)?.remove(); updateNotificationCount(); } });
+        }
+
+        function goToPost(postId) {
+            if (postId) window.location.href = `/Post/Details/${postId}`;
+        }
+
+        // ========================================
+        // 5. MESSAGE SYSTEM
+        // ========================================
+        function updateMessageCount() {
+            fetch("/Chat/GetUnreadMessageCount")
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    const badge = document.getElementById("message-count");
+                    const count = data.unread;
+                    badge.textContent = count > 99 ? "99+" : count;
+                    badge.style.display = count > 0 ? "flex" : "none";
+                });
+        }
+
+        function toggleMessageDropdown() {
+            const dropdown = document.getElementById("messageDropdown");
+            dropdown.classList.toggle("hidden");
+
+            if (!dropdown.classList.contains("hidden")) {
+                loadUnreadMessages();
+            }
+        }
+
+        function loadUnreadMessages() {
+            fetch("/Chat/GetUnreadMessages")
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    const list = document.getElementById("message-list");
+                    list.innerHTML = "";
+                    data.data.forEach(item => addMessageItem(item));
+                });
+        }
+
+        function addMessageItem(item) {
+            const list = document.getElementById("message-list");
+            const div = document.createElement("div");
+
+            // Thêm viền xanh nếu chưa đọc (giống thông báo bài viết)
+            const isUnread = !item.message.isRead;
+            div.className = `p-3 border-b dark:border-gray-700 transition cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 ${isUnread ? "bg-blue-50 dark:bg-blue-900/20 border-l-4 border-l-blue-500" : ""}`;
+
+            let avatar = item.sender.avatar || '/Uploads/default-avatar.png';
+            let title = item.sender.fullName;
+            let content = item.message.content;
+
+            if (item.isGroup) {
+                avatar = item.groupAvatar || '/Uploads/default-group.png';
+                title = item.groupName;
+                content = `<strong>${item.sender.fullName}:</strong> ${item.message.content}`;
+            }
+
+            // Xử lý nội dung tin nhắn đặc biệt
+            if (content.startsWith("[img]")) {
+                content = "đã gửi 1 ảnh";
+            } else if (content.startsWith("[video]")) {
+                content = "đã gửi 1 video";
+            } else if (content.startsWith("[file]")) {
+                content = "đã gửi 1 tệp";
+            } else if (content.startsWith("[system]")) {
+                content = content.replace("[system]", "").replace("[/system]", "");
+            }
+
+            div.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <img src="${avatar}" class="w-10 h-10 rounded-full object-cover flex-shrink-0">
+                        <div class="flex-1 min-w-0">
+                            <div class="text-sm font-bold text-gray-800 dark:text-gray-200 truncate">${title}</div>
+                            <div class="text-sm text-gray-600 dark:text-gray-400 truncate">${content}</div>
+                            <div class="text-xs text-gray-500 dark:text-gray-500">${new Date(item.message.createdAt).toLocaleString('vi-VN')}</div>
+                        </div>
+                    </div>`;
+            div.onclick = () => {
+                markMessageAsRead(item.conversationId);
+                window.location.href = `/Chat/Index?c=${item.conversationId}`;
+            };
+            list.appendChild(div);
+        }
+
+        function markMessageAsRead(conversationId) {
+            fetch("/Chat/MarkAsRead", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(conversationId) })
+                .then(r => r.json())
+                .then(d => { if (d.success) updateMessageCount(); });
+        }
+
+        function markAllMessagesAsRead() {
+            fetch("/Chat/MarkAllMessagesAsRead", { method: "POST" })
+                .then(r => r.json())
+                .then(d => { if (d.success) { updateMessageCount(); toggleMessageDropdown(); } });
+        }
+
+       
+
+        // ========================================
+        // 7. UI INTERACTIONS (Modal, Dropdown, Toast)
+        // ========================================
+       
+        function toggleDropdown() {
+            document.getElementById("userDropdown").classList.toggle("hidden");
+        }
+
+       
+        function showToast(html) {
+            const toast = document.createElement("div");
+            toast.className = "fixed bottom-6 right-6 bg-green-600 text-white px-6 py-4 rounded-xl shadow-2xl z-50 transform transition-all duration-500 translate-y-10 opacity-0";
+            toast.innerHTML = html;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.classList.remove("translate-y-10", "opacity-0"), 100);
+            setTimeout(() => {
+                toast.classList.add("translate-y-10", "opacity-0");
+                setTimeout(() => toast.remove(), 500);
+            }, 3500);
+        }
+
+        // Close dropdowns when clicking outside
+        document.addEventListener("click", (e) => {
+            closeIfOutside(e, "notificationDropdown", "a[onclick='toggleNotificationDropdown()']");
+            closeIfOutside(e, "messageDropdown", "a[onclick='toggleMessageDropdown()']");
+            closeIfOutside(e, "userDropdown", ".flex.items-center.space-x-2.cursor-pointer");
+        });
+
+        function closeIfOutside(e, dropdownId, triggerSelector) {
+            const dropdown = document.getElementById(dropdownId);
+            const trigger = document.querySelector(triggerSelector);
+            if (dropdown && !dropdown.contains(e.target) && (!trigger || !trigger.contains(e.target))) {
+                dropdown.classList.add("hidden");
+            }
+        }
+
+        // Close modal when clicking backdrop
+        document.getElementById("postModal")?.addEventListener("click", (e) => {
+            if (e.target.id === "postModal") closePostModal();
+        });
+
+        // Helper
+        function setText(id, value) {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        }
+
+        // MOBILE MENU TOGGLE
+        const mobileBtn = document.getElementById("mobileMenuBtn");
+        const mobileMenu = document.getElementById("mobileMenu");
+        const mobileMenuPanel = document.getElementById("mobileMenuPanel");
+        const closeMobile = document.getElementById("closeMobileMenu");
+
+        function openMobileMenu() {
+            mobileMenu.classList.remove("hidden");
+            // Force reflow
+            mobileMenu.offsetHeight;
+            mobileMenu.classList.remove("opacity-0");
+            mobileMenuPanel.classList.remove("-translate-x-full");
+        }
+
+        function closeMobileMenuFunc() {
+            mobileMenu.classList.add("opacity-0");
+            mobileMenuPanel.classList.add("-translate-x-full");
+            setTimeout(() => {
+                mobileMenu.classList.add("hidden");
+            }, 300); // Đợi animation kết thúc
+        }
+
+        mobileBtn?.addEventListener("click", openMobileMenu);
+        closeMobile?.addEventListener("click", closeMobileMenuFunc);
+
+        // Đóng khi click ngoài
+        mobileMenu?.addEventListener("click", (e) => {
+            if (e.target === mobileMenu) {
+                closeMobileMenuFunc();
+            }
+        });
+        // ========================================
+        // DARK MODE TOGGLE LOGIC
+        // ========================================
+        // Dark Mode Toggle - CHỈ DÙNG 1 ICON
+        const themeToggle = document.getElementById('theme-toggle');
+        const themeIcon = document.getElementById('theme-icon');
+
+        // Kiểm tra theme hiện tại và set icon đúng
+        if (localStorage.getItem('theme') === 'dark' ||
+            (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            themeIcon.classList.replace('fa-moon', 'fa-sun'); // Đang tối → hiện mặt trời
+        } else {
+            document.documentElement.classList.remove('dark');
+            themeIcon.classList.replace('fa-sun', 'fa-moon'); // Đang sáng → hiện mặt trăng
+        }
+
+        themeToggle.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+                themeIcon.classList.replace('fa-moon', 'fa-sun');
+            } else {
+                localStorage.setItem('theme', 'light');
+                themeIcon.classList.replace('fa-sun', 'fa-moon');
+            }
+        });
+        function closeCallRejectedModal() {
+            document.getElementById("callRejectedModal").classList.add("hidden");
+            cleanupCall();
+        }
+
+        function closeCallEndedModal() {
+            document.getElementById("callEndedModal").classList.add("hidden");
+            cleanupCall();
+        }
+    </script>
+    <!-- Global Confirmation Modal -->
+    <div id="globalConfirmationModal" class="fixed inset-0 z-50 hidden flex items-center justify-center bg-black bg-opacity-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 w-96 max-w-full mx-4">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4" id="globalModalTitle">Xác nhận</h3>
+            <p class="text-gray-600 dark:text-gray-300 mb-6" id="globalModalMessage">Bạn có chắc chắn muốn thực hiện hành động này?</p>
+            <div class="flex justify-end space-x-3">
+                <button id="globalModalCancel" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors">Hủy</button>
+                <button id="globalModalConfirm" class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors">Xóa</button>
+            </div>
+        </div>
+    <!-- SignalR & Site JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/7.0.5/signalr.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script>
+        // === SIGNALR NOTIFICATION LOGIC ===
+        const notificationConnection = new signalR.HubConnectionBuilder()
+            .withUrl("/notificationHub")
+            .configureLogging(signalR.LogLevel.None)
+            .build();
+
+        notificationConnection.start().catch(err => console.error("Notification Hub lỗi:", err));
+
+        notificationConnection.on("ReceiveNotification", (notification) => {
+            prependNotification(notification);
+            updateNotificationCount();
+            if (typeof showToast === "function") showToast("Bạn có thông báo mới!");
+        });
+
+        function updateNotificationCount() {
+            fetch("/Notification/GetNotifications")
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    const badge = document.getElementById("notification-count");
+                    if (badge) {
+                        const count = data.unread;
+                        badge.textContent = count > 99 ? "99+" : count;
+                        badge.style.display = count > 0 ? "flex" : "none";
+                    }
+                });
+        }
+
+        function toggleNotificationDropdown() {
+            const dropdown = document.getElementById("notificationDropdown");
+            dropdown.classList.toggle("hidden");
+            if (!dropdown.classList.contains("hidden")) {
+                loadNotifications();
+            }
+        }
+
+        function loadNotifications() {
+            fetch("/Notification/GetNotifications")
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) return;
+                    const list = document.getElementById("notification-list");
+                    list.innerHTML = "";
+                    const deleteAllBtn = document.getElementById("deleteAllBtn");
+                    if(deleteAllBtn) deleteAllBtn.style.display = data.data.length > 0 ? "block" : "none";
+
+                    [...data.data].reverse().forEach(notif => prependNotification(notif));
+                });
+        }
+
+        function prependNotification(n) {
+            const notifId = n.Id ?? n.id;
+            const type = n.Type ?? n.type;
+            let message = n.Message ?? n.message;
+            message = message.replace(/\{\{mention:\d+:(.*?)\}\}/g, '<span class="text-blue-600 font-semibold">@@$1</span>');
+            const isRead = n.IsRead ?? n.isRead;
+            const createdAt = n.createdAt ?? new Date(n.CreatedAt).toLocaleString('vi-VN');
+            const postId = n.PostId ?? n.postId ?? 0;
+            const requestId = n.FriendRequestId ?? n.friendRequestId ?? 0;
+            const from = n.fromUser ?? n.FromUser ?? {};
+            const avatar = from.avatar ?? from.Avatar ?? '/Uploads/default-avatar.png';
+            const fullName = from.fullName ?? from.name ?? from.FullName ?? from.Name ?? 'Người dùng';
+
+            const list = document.getElementById("notification-list");
+            const item = document.createElement("div");
+            item.className = `p-3 border-b transition cursor-pointer ${!isRead ? "bg-blue-50" : ""}`;
+            item.dataset.notificationId = notifId;
+
+            if (type === "friend_request") {
+                item.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="relative">
+                                <img src="${avatar}" class="w-10 h-10 rounded-full flex-shrink-0 object-cover">
+                                <div class="absolute -bottom-1 -right-1 bg-blue-500 rounded-full p-1 border-2 border-white dark:border-gray-800 flex items-center justify-center w-5 h-5">
+                                    <i class="fa-solid fa-user-plus text-white text-[10px]"></i>
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-gray-700"><b>${fullName}</b> ${message}</div>
+                                <div class="text-xs text-gray-400">${createdAt}</div>
+                                <div class="mt-2 flex gap-2">
+                                    <button onclick="event.stopPropagation(); acceptFriend(${requestId}, ${notifId})"
+                                            class="px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded hover:bg-green-600 transition">Chấp nhận</button>
+                                    <button onclick="event.stopPropagation(); declineFriend(${requestId}, ${notifId})"
+                                            class="px-3 py-1.5 bg-gray-400 text-white text-xs font-medium rounded hover:bg-gray-500 transition">Từ chối</button>
+                                </div>
+                            </div>
+                            <button onclick="event.stopPropagation(); deleteNotification(${notifId})"
+                                    class="text-gray-400 hover:text-red-600 transition ml-2">X</button>
+                        </div>`;
+                 item.onclick = function (e) {
+                    if (!e.target.closest('button')) {
+                        markNotificationAsRead(notifId);
+                        window.location.href = "/Friend/Index"; // Consistent redirect
+                    }
+                };
+            } else {
+                // Determine icon
+                let icon = '<i class="fa-solid fa-bell text-white text-[10px]"></i>';
+                let bg = 'bg-gray-500';
+                
+                if (type === 'comment') {
+                    icon = '<i class="fa-solid fa-comment text-white text-[10px]"></i>';
+                    bg = 'bg-green-500';
+                } else if (type === 'reply') {
+                    icon = '<i class="fa-solid fa-reply text-white text-[10px]"></i>';
+                    bg = 'bg-purple-500';
+                } else if (type === 'like') { 
+                     icon = '<i class="fa-solid fa-heart text-white text-[10px]"></i>';
+                     bg = 'bg-red-500';
+                }
+
+                item.innerHTML = `
+                        <div class="flex items-center gap-3 cursor-pointer" onclick="goToPost(${postId})">
+                            <div class="relative">
+                                <img src="${avatar}" class="w-10 h-10 rounded-full flex-shrink-0 object-cover">
+                                <div class="absolute -bottom-1 -right-1 ${bg} rounded-full p-1 border-2 border-white dark:border-gray-800 flex items-center justify-center w-5 h-5">
+                                    ${icon}
+                                </div>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-gray-700"><b>${fullName}</b> ${message}</div>
+                                <div class="text-xs text-gray-400">${createdAt}</div>
+                            </div>
+                            <button onclick="event.stopPropagation(); deleteNotification(${notifId})"
+                                    class="text-gray-400 hover:text-red-600 transition">✕</button>
+                        </div>`;
+                item.onclick = (e) => {
+                    if (e.target.tagName !== 'BUTTON' && !e.target.closest('button')) {
+                         markNotificationAsRead(notifId);
+                         goToPost(postId);
+                    }
+                };
+            }
+            list.prepend(item);
+        }
+
+        function markNotificationAsRead(id) {
+            fetch(`/Notification/MarkAsRead?id=${id}`, { method: "POST" })
+                .then(r => r.json())
+                .then(d => { if (d.success) updateNotificationCount(); });
+        }
+
+        function markAllAsRead() {
+            fetch("/Notification/MarkAsRead", { method: "POST" })
+                .then(r => r.json())
+                .then(d => { if (d.success) { updateNotificationCount(); toggleNotificationDropdown(); } });
+        }
+
+        function deleteNotification(id) {
+            showGlobalConfirm(
+                "Xóa thông báo",
+                "Bạn có chắc muốn xóa thông báo này?",
+                () => {
+                    fetch(`/Notification/Delete?id=${id}`, { method: "POST" })
+                        .then(r => r.json())
+                        .then(d => { 
+                            if (d.success) { 
+                                const el = document.querySelector(`[data-notification-id="${id}"]`);
+                                if (el) el.remove();
+                                updateNotificationCount(); 
+                            } 
+                        });
+                }
+            );
+        }
+
+        function deleteAllNotifications() {
+            showGlobalConfirm(
+                "Xóa tất cả",
+                "Bạn có chắc muốn xóa TẤT CẢ thông báo?",
+                () => {
+                    fetch("/Notification/DeleteAll", { method: "POST" })
+                        .then(r => r.json())
+                        .then(d => { if (d.success) { updateNotificationCount(); toggleNotificationDropdown(); } });
+                }
+            );
+        }
+
+        function acceptFriend(requestId, notiId) {
+            fetch('/Friend/Accept', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestId) })
+                .then(r => r.json())
+                .then(d => { if (d.success) { document.querySelector(`[data-notification-id="${notiId}"]`)?.remove(); updateNotificationCount(); loadFriendSummary(); } });
+        }
+
+        function declineFriend(requestId, notiId) {
+            fetch('/Friend/Decline', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestId) })
+                .then(r => r.json())
+                .then(d => { if (d.success) { document.querySelector(`[data-notification-id="${notiId}"]`)?.remove(); updateNotificationCount(); } });
+        }
+        
+        function loadFriendSummary() {
+            // Placeholder: Temp.cshtml usually doesn't show friend list, but if needed:
+            // fetch friend summary
+        }
+
+        function goToPost(postId) {
+            if (postId) window.location.href = `/Post/Details/${postId}`;
+        }
+        
+        // Initial Load
+        document.addEventListener("DOMContentLoaded", () => {
+             updateNotificationCount();
+        });
+    </script>
+    <script src="~/js/videoCall.js"></script>
+</body>
+</html>
